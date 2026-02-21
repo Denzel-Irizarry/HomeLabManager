@@ -1,0 +1,15 @@
+﻿using System.Net.Http.Headers;
+using HomeLabManager.Core.Entities;
+
+namespace HomeLabManager.API.Interfaces
+{
+    //make sure to reference as interface or will have issues accessing
+    public interface VendorLookupInterface
+    {
+        //helpful info about async to reference 
+        // https://learn.microsoft.com/en-us/dotnet/csharp/asynchronous-programming/
+        //task is represents the work being done for async processes 
+        Task<Product> GetProductBySerialAsync(string serial);
+
+    }
+}

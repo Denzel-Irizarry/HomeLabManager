@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="HomeLabManager.API/HomeLabManager.API.csproj" />
+  <Project Path="HomeLabManager.Core/HomeLabManager.Core.csproj" />
+  <Project Path="HomeLabManager.WEBUI/HomeLabManager.WEBUI.csproj">
+    <BuildDependency Project="HomeLabManager.Core/HomeLabManager.Core.csproj" />
+  </Project>
+</Solution>

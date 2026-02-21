@@ -1,0 +1,6 @@
+@HomeLabManager.API_HostAddress = http://localhost:5015
+
+GET {{HomeLabManager.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
