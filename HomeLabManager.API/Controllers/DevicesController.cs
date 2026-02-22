@@ -1,7 +1,6 @@
 ﻿using HomeLabManager.API.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using HomeLabManager.API.Services;
 
 namespace HomeLabManager.API.Controllers
 {
@@ -21,10 +20,20 @@ namespace HomeLabManager.API.Controllers
         //posting data 
         [HttpPost("register")]
         //iaction is just being able to return information
-        public async Task<IActionResult> Register()
+        //IFormFile represents file over http
+        public async Task<IActionResult> Register(IFormFile file)
         {
-            //fake test steam
-            using var stream = new MemoryStream();
+            //early exit if empty
+            if(file == null || file.Length == 0)
+            {
+                return BadRequest("No file uploaded.");
+            }
+
+            
+            //opens a request to do the actual reading of the file
+            //Passing the IFormFile to a stream because stream is .Net compatible with any framework
+            //will work in asp.net or blazor a.k.a. translating to a universal type
+            using var stream = file.OpenReadStream();
 
             //calls register device method that gets the scan and 
             //vendor information , and product info

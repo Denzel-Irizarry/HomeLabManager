@@ -24,7 +24,7 @@ namespace HomeLabManager.API
             builder.Services.AddScoped<DeviceService>();
 
             //scanning service
-            builder.Services.AddScoped<ScanServiceInterface, FakeScanServiceTesting>();
+            builder.Services.AddScoped<ScanServiceInterface, ScanService>();
 
             //vendor lookup service and test 
             builder.Services.AddScoped<VendorLookupInterface, FakeVendorLookupTest>();

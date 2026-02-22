@@ -1,4 +1,5 @@
 ﻿using HomeLabManager.API.Interfaces;
+using HomeLabManager.API.Models;
 using HomeLabManager.Core.Entities;
 
 
@@ -21,9 +22,14 @@ namespace HomeLabManager.API.Services
         //task is represents the work being done for async processes 
         public async Task<Device> RegisterDeviceAsync(Stream imageStream)
         {
+            var request = new ScanRequest
+            {
+                ImageStream = imageStream
+            };
+
             //await means delay acting on the task until we get the results
             //get the serial
-            var serial = await scanService.ExtractSerialAsync(imageStream);
+            var serial = await scanService.ExtractSerialAsync(request);
 
             //await means delay acting on the task until we get the results
             //lookup product from vendor
