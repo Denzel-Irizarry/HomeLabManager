@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 
 using HomeLabManager.API.Infrastructure;
 using HomeLabManager.API.Interfaces;
@@ -33,6 +34,13 @@ namespace HomeLabManager.API
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
 
+            //DBcontext for build services to know to use SQLite
+            var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+            builder.Services.AddDbContext<ApplicationDBContext>(
+                delegate (DbContextOptionsBuilder options)
+                {
+                    options.UseSqlite(connectionString);
+                });
 
             var app = builder.Build();
 

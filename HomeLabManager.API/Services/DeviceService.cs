@@ -7,14 +7,16 @@ namespace HomeLabManager.API.Services
 {
     public class DeviceService
     {
-        //initiateing the scan and vendor interaces for use with deviceservice
+        //initiateing the scan, vendor, device interfaces for use with deviceservice
         private readonly ScanServiceInterface scanService;
         private readonly VendorLookupInterface vendorLookup;
+        private readonly DeviceRepositoryInterface deviceRepository;
 
-        public DeviceService(ScanServiceInterface scanService, VendorLookupInterface vendorLookup)
+        public DeviceService(ScanServiceInterface scanService, VendorLookupInterface vendorLookup, DeviceRepositoryInterface deviceRepository)
         {
             this.scanService = scanService;
             this.vendorLookup = vendorLookup;
+            this.deviceRepository = deviceRepository;
         }
 
         //helpful info about async to reference 
@@ -44,6 +46,9 @@ namespace HomeLabManager.API.Services
                 Product = product,
                 CreatedAt = DateTime.Now
             };
+
+            //adds the created device so it can persist
+            await deviceRepository.AddAsync(device);
 
             //this is where i want to send it to the DB not set up yet ///////////
             return device;
