@@ -21,5 +21,7 @@ namespace HomeLabManager.API.Infrastructure
         {
             return await context.Devices.AnyAsync(d => d.SerialNumber == serial);
         }
+        
+
     }
 }
