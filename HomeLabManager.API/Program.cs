@@ -13,9 +13,11 @@ namespace HomeLabManager.API
         {
             var builder = WebApplication.CreateBuilder(args);
 
+            //all builder services are a registry of when a service is requested, how to create an instance of that service.
             // Add services to the container.
 
             builder.Services.AddControllers();
+            
             // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
             builder.Services.AddOpenApi();
 
@@ -27,6 +29,9 @@ namespace HomeLabManager.API
             //scanning service
             builder.Services.AddScoped<ScanServiceInterface, ScanService>();
 
+            //
+            builder.Services.AddScoped<DeviceRepositoryInterface, DeviceRepository>();
+
             //vendor lookup service and test 
             builder.Services.AddScoped<VendorLookupInterface, FakeVendorLookupTest>();
 
@@ -36,11 +41,7 @@ namespace HomeLabManager.API
 
             //DBcontext for build services to know to use SQLite
             var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-            builder.Services.AddDbContext<ApplicationDBContext>(
-                delegate (DbContextOptionsBuilder options)
-                {
-                    options.UseSqlite(connectionString);
-                });
+            builder.Services.AddDbContext<ApplicationDBContext>(options => options.UseSqlite(connectionString));
 
             var app = builder.Build();
 
