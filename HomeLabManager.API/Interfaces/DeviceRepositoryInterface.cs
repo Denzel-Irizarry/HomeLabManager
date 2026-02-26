@@ -9,5 +9,7 @@ namespace HomeLabManager.API.Interfaces
         //check if it already is in system 
         Task<bool> SerialExistsAsynch(string serial);
 
+        Task<List<Device>> GetAllAsync();
+
     }
 }

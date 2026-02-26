@@ -10,7 +10,7 @@ namespace HomeLabManager.Core.Entities
         public Guid Id { get; set; }
 
         public string VendorName { get; set; } = string.Empty;
-
+        public string? VendorBaseUrl{get;set;}
 
 
     }

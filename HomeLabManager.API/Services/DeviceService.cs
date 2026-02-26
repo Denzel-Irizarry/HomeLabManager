@@ -1,4 +1,5 @@
-﻿using HomeLabManager.API.Infrastructure;
+﻿using HomeLabManager.API.ExceptionsAPI;
+using HomeLabManager.API.Infrastructure;
 using HomeLabManager.API.Interfaces;
 using HomeLabManager.API.Models;
 using HomeLabManager.Core.Entities;
@@ -42,6 +43,19 @@ namespace HomeLabManager.API.Services
             //get the serial
             var serial = await scanService.ExtractSerialAsync(request);
 
+            //stop the process early if no serial number is found, don't start with vendor lookup or database operations
+            if(string.IsNullOrWhiteSpace(serial))
+            {
+                throw new SerialNumberMissingException("Serial number could not be extracted from the image.");
+            }
+
+            //check for duplicate serial number before checking with vendor lookup or database operations and stops device from being created
+            var existingDevice = await deviceRepository.SerialExistsAsynch(serial);
+            if(existingDevice)
+            {
+                throw new DuplicateSerialNumberException("A device with the same serial number already exists.");
+            }
+
             //await means delay acting on the task until we get the results
             //lookup product from vendor
             var product = await vendorLookup.GetProductBySerialAsync(serial);
@@ -53,7 +67,7 @@ namespace HomeLabManager.API.Services
                 SerialNumber = serial,
                 ProductId = product.Id,
                 Product = product,
-                CreatedAt = DateTime.Now
+                CreatedAtUtc = DateTime.UtcNow
             };
 
             //adds the created device so it can persist
@@ -64,6 +78,8 @@ namespace HomeLabManager.API.Services
 
             //this is where i want to send it to the DB not set up yet ///////////
             return device;
+
+
 
         }
 

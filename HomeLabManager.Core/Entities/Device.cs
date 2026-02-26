@@ -12,7 +12,7 @@ namespace HomeLabManager.Core.Entities
         //Guid=(Globally Unique Identifier) => primary key for database
         public Guid Id { get; set; }
         //this will be processed for from the image scanning service
-        public string SerialNumber { get; set; } = string.Empty;
+        public string? SerialNumber { get; set; } = string.Empty;
 
         //what to call the device could be device name or hostname
         public string? NickName { get; set; }
@@ -21,11 +21,10 @@ namespace HomeLabManager.Core.Entities
         public string? Location { get; set; }
 
         //will interact with products to get this information
-        public Product? Product { get; set; }
         public Guid ProductId { get; set; }
-
+        public Product? Product { get; set; }
 
         //when device was added to interface
-        public DateTime CreatedAt { get; set; }=DateTime.Now;
+        public DateTime CreatedAtUtc { get; set; }=DateTime.UtcNow;
     }
 }
