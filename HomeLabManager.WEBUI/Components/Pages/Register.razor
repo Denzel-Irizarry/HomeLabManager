@@ -1,0 +1,110 @@
+@page "/register"
+@using System.Net.Http.Json
+@inject IHttpClientFactory HttpClientFactory
+@*
+we are using rendermode becuase it allows us to actually communicate between different parts of the app without it,
+the form would render but the submit button would not work because the component would be rendered as static html and not interactive blazor components.
+*@
+@rendermode InteractiveServer
+
+
+<PageTitle>Register Device</PageTitle>
+
+<div class="container py-4">
+	<h1>Register Device</h1>
+	<p class="text-muted">Manual registration for a device</p>
+
+	@*
+	*	https://learn.microsoft.com/en-us/dotnet/api/microsoft.aspnetcore.components.forms.editform?view=aspnetcore-10.0
+	*	https://learn.microsoft.com/en-us/aspnet/core/blazor/forms/?view=aspnetcore-9.0
+	*	@bind-Value is used to bind the input value to the corresponding property in the manualDevice model.
+	*	OnValidSubmit is an event that triggers when the form is submitted and all validation checks pass. It calls the HandleSubmit method to process the form data.
+	*@
+	<EditForm Model="manualDevice" OnValidSubmit="HandleSubmit" FormName="manual-device-form">
+
+		@*create a grid to hold the form *@
+	<div class="row g-3">
+
+		@*input for device serial number*@
+		<div class="col-12 col-md-6">
+			<label class="form-label">Serial Number</label>
+			<InputText class="form-control" @bind-Value="manualDevice.SerialNumber" />
+		</div>
+
+		@*input section for device name*@
+		<div class="col-12 col-md-6">
+			<label class="form-label">Nickname</label>
+			<InputText class="form-control" @bind-Value="manualDevice.NickName" />
+		</div>
+
+		@*input section for location*@
+		<div class="col-12 col-md-6">
+			<label class="form-label">Location</label>
+			<InputText class="form-control" @bind-Value="manualDevice.Location" />
+		</div>
+
+		@*input section for product name*@
+		<div class="col-12 col-md-6">
+			<label class="form-label">Product</label>
+			<InputText class="form-control" @bind-Value="manualDevice.ProductName" />
+		</div>
+
+		@*input section for Model Number*@
+		<div class="col-12 col-md-6">
+			<label class="form-label">Model</label>
+			<InputText class="form-control" @bind-Value="manualDevice.ModelNumber" />
+		</div>
+
+		@*input section for Vendor name*@
+		<div class="col-12 col-md-6">
+			<label class="form-label">Vendor</label>
+			<InputText class="form-control" @bind-Value="manualDevice.VendorName" />
+		</div>
+
+
+		@*submit button*@
+		<button type="submit" class="btn btn-primary">Save Device</button>
+
+		@*end the grid view for the form*@
+	</div>
+		@if(!string.IsNullOrWhiteSpace(statusMessage)){
+			<p class="text-success mt-3">@statusMessage</p>
+		}
+
+	</EditForm>
+
+</div>
+
+@code {
+	private ManualDeviceFormModel manualDevice = new();
+	private string? statusMessage;
+
+	public class ManualDeviceFormModel
+	{
+		public string? SerialNumber { get; set; }
+		public string? NickName { get; set; }
+		public string? Location { get; set; }
+		public string? ProductName { get; set; }
+		public string? ModelNumber { get; set; }
+		public string? VendorName { get; set; }
+	}
+	public async Task HandleSubmit()
+	{
+		//create an HttpClient instance using the factory and the named client configuration
+		var client = HttpClientFactory.CreateClient("HomeLabApi");
+
+		//this sends the information to the API controller as a JSON object in the body of the request
+		var response = await client.PostAsJsonAsync("/api/devices/manual", manualDevice);
+
+		if(response.IsSuccessStatusCode)
+		{
+			statusMessage = "Device registered successfully!";
+			manualDevice = new ManualDeviceFormModel(); // Clear the form
+		}
+		else
+		{
+			var error = await response.Content.ReadAsStringAsync();
+			statusMessage = $"Error saving device: {(int)response.StatusCode} - {error}";
+		}
+	}
+}

@@ -9,7 +9,13 @@ namespace HomeLabManager.API.Interfaces
         //check if it already is in system 
         Task<bool> SerialExistsAsynch(string serial);
 
+        //get all devices in the system, including related product and vendor information
         Task<List<Device>> GetAllAsync();
 
+        //get a specific device by id, including related product and vendor information
+        Task<Device?> GetDeviceByIdAsync(Guid id);
+
+        //delete a specific device by id
+        Task<bool> DeleteByIdAsync(Guid id);
     }
 }

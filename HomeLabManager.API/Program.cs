@@ -43,6 +43,9 @@ namespace HomeLabManager.API
             var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
             builder.Services.AddDbContext<ApplicationDBContext>(options => options.UseSqlite(connectionString));
 
+
+
+
             var app = builder.Build();
 
             // Configure the HTTP request pipeline.

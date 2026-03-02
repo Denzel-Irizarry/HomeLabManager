@@ -1,0 +1,85 @@
+﻿@page "/devices"
+@using System.Net.Http.Json
+@using HomeLabManager.WEBUI.Models
+@* https://learn.microsoft.com/en-us/dotnet/api/system.net.http.ihttpclientfactory.createclient?view=net-10.0-pp#remarks*@
+@inject IHttpClientFactory HttpClientFactory
+
+<PageTitle>Devices</PageTitle>
+
+
+<h1>Devices</h1>
+
+@if (isLoading)
+{
+	<p>Loading...</p>
+}
+else if (!string.IsNullOrEmpty(errorMessage))
+{
+	<p class="text-danger">@errorMessage</p>
+}
+else if (devices.Count == 0)
+{
+	<p>No devices found.</p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Serial</th>
+                <th>Nickname</th>
+                <th>Location</th>
+                <th>Product</th>
+                <th>Model</th>
+                <th>Vendor</th>
+                <th>Created (UTC)</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var d in devices)
+            {
+                <tr>
+                    <td>@d.SerialNumber</td>
+                    <td>@d.NickName</td>
+                    <td>@d.Location</td>
+                    <td>@d.ProductName</td>
+                    <td>@d.ModelNumber</td>
+                    <td>@d.VendorName</td>
+                    <td>@d.CreatedAtUtc</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+
+
+
+@code
+{
+    private List<DeviceResponseDataTransferObject> devices = [];
+    private bool isLoading = true;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var client = HttpClientFactory.CreateClient("HomeLabApi");
+            var result = await client.GetFromJsonAsync<List<DeviceResponseDataTransferObject>>("api/devices");
+
+            if (result != null)
+            {
+                devices.AddRange(result);
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load devices: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

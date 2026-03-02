@@ -3,7 +3,8 @@ using HomeLabManager.API.ExceptionsAPI;
 using HomeLabManager.API.Interfaces;
 using HomeLabManager.API.Models;
 
-
+//https://skia.org/ originally developed by google, skia is a 2D graphics library that provides common APIs that work across a variety of hardware and software platforms.
+//https://skiasharp.com/
 //uses Skiasharp for cross platform compatiability
 using SkiaSharp;
 

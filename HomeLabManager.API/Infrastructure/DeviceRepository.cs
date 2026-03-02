@@ -33,5 +33,26 @@ namespace HomeLabManager.API.Infrastructure
             .ToListAsync();
         }
 
+        //include the related product and vendor data when retrieving a specific device to provide more comprehensive information about the device, including its associated product and vendor details
+        public async Task<Device?> GetDeviceByIdAsync(Guid id)
+        {
+            return await context.Devices
+            .Include(device => device.Product)
+            .ThenInclude(product => product.Vendor)
+            .FirstOrDefaultAsync(device => device.Id == id);
+        }
+
+        public async Task<bool> DeleteByIdAsync(Guid id)
+        {
+            var device = await context.Devices.FindAsync(id);
+            if (device == null)
+            {
+                return false;
+            }
+
+            context.Devices.Remove(device);
+            return true;
+        }
+
     }
 }

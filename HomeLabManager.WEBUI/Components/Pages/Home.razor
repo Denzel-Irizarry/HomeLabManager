@@ -1,7 +1,48 @@
 ﻿@page "/"
 
-<PageTitle>Home</PageTitle>
+<PageTitle>HomeLab Dashboard</PageTitle>
 
-<h1>Hello, world!</h1>
 
-Welcome to your new app.
+<div class="container py-4">@* adds centered page layout with top/bottom padding*@ 
+	<h1>HomeLab Dashboard</h1>
+	<p>Manage devices, register hardware, and review inventory status.</p>
+
+	@*creates row with spacing*@
+	<div class="row g-3">
+		@*full width on small screens 2 per row on medium and 3 per row for large*@
+		<div class="col-12 col-md-6 col-xl-4">
+			@*card ui with equal height and shadow added*@
+			<div class="card h-100 shadow-sm">
+				<div class="card-body">
+					<h5 class="card-title">Device Inventory</h5>
+					<p class="card-text">View all registered devices with vendor and product info.</p>
+					<a class="btn btn-primary" href="/devices">Open Devices</a>
+				</div>
+			</div>
+		</div>
+
+		@*full width on small screens 2 per row on medium and 3 per row for large*@
+		<div class="col-12 col-md-6 col-xl-4">
+			@*card ui with equal height and shadow added*@
+			<div class="card h-100 shadow-sm">
+				<div class="card-body">
+					<h5 class="card-title">Register Device</h5>
+					<p class="card-text">Add new hardware to your inventory with detailed information.</p>
+					<a class="btn btn-primary" href="/devices">Register Device</a>
+				</div>
+			</div>
+		</div>
+
+		@*full width on small screens 2 per row on medium and 3 per row for large*@
+		<div class="col-12 col-md-6 col-xl-4">
+			@*card ui with equal height and shadow added*@
+			<div class="card h-100 shadow-sm">
+				<div class="card-body">
+					<h5 class="card-title">System Notes</h5>
+					<p class="card-text">API and UI are connected. Next step is a registration form page.</p>
+				</div>
+			</div>
+		</div>
+	</div>
+	@*closing the row*@
+</div>
