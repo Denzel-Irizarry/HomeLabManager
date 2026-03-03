@@ -134,6 +134,21 @@ namespace HomeLabManager.API.Controllers
             return Ok(device);
         }
 
+        [HttpGet("stats")]
+        public async Task<IActionResult> GetDeviceStats()
+        {
+            try
+            {
+                var stats = await deviceService.GetDeviceStatsAsync();
+                return Ok(stats);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "An error occurred while retrieving device statistics.");
+                return StatusCode(500, "An error occurred while retrieving device statistics.");
+            }
+        }
+
         //needs exception handling for if device with id is not found, or if there is an error during the delete process
         //delete request to delete a specific device by id
         [HttpDelete("{id:guid}")]
@@ -178,5 +193,8 @@ namespace HomeLabManager.API.Controllers
                 return StatusCode(500, "An error occurred while updating the device.");
             }
         }
+
+
+        
     }
 }

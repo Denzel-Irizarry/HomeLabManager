@@ -1,4 +1,9 @@
 ﻿@page "/"
+@using System.Net.Http.Json
+@using HomeLabManager.WEBUI.Models
+@rendermode InteractiveServer
+@inject IHttpClientFactory HttpClientFactory
+
 
 <PageTitle>HomeLab Dashboard</PageTitle>
 
@@ -15,8 +20,36 @@
 			<div class="card h-100 shadow-sm">
 				<div class="card-body">
 					<h5 class="card-title">Device Inventory</h5>
-					<p class="card-text">View all registered devices with vendor and product info.</p>
-					<a class="btn btn-primary" href="/devices">Open Devices</a>
+					<p class="card-text">View all registered devices stats.</p>
+					@if (!string.IsNullOrWhiteSpace(statsErrorMessage))
+					{
+						<p class="text-danger">@statsErrorMessage</p>
+					}
+					else if (deviceStats is null)
+					{
+						<p>Loading stats...</p>
+					}
+					else
+					{
+						<dl class="stats-list mb-3">
+							<dt>Total Devices:</dt>
+							<dd>@deviceStats.TotalDevices</dd>
+							<dt>With Serial:</dt>
+							<dd>@deviceStats.WithSerialNumber</dd>
+							<dt>Without Serial:</dt>
+							<dd>@deviceStats.WithoutSerialNumber</dd>
+							<dt>With Nickname:</dt>
+							<dd>@deviceStats.WithNickName</dd>
+							<dt>Without Nickname:</dt>
+							<dd>@deviceStats.WithoutNickName</dd>
+							<dt>With Location:</dt>
+							<dd>@deviceStats.WithLocation</dd>
+							<dt>Without Location:</dt>
+							<dd>@deviceStats.WithoutLocation</dd>
+							<dt>Last Added (UTC):</dt>
+							<dd>@(deviceStats.LastAddedUtc?.ToString("u") ?? "N/A")</dd>
+						</dl>
+					}
 				</div>
 			</div>
 		</div>
@@ -46,3 +79,22 @@
 	</div>
 	@*closing the row*@
 </div>
+
+
+@code{
+	private DeviceStatsResponse deviceStats = new DeviceStatsResponse();
+	private string? statsErrorMessage;
+
+	protected override async Task OnInitializedAsync()
+	{
+		try
+		{
+			var client = HttpClientFactory.CreateClient("HomeLabApi");
+			deviceStats = await client.GetFromJsonAsync<DeviceStatsResponse>("api/devices/stats") ?? new DeviceStatsResponse();
+		}
+		catch (Exception ex)
+		{
+			statsErrorMessage = $"Failed to load device statistics: {ex.Message}";
+		}
+	}
+}

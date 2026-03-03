@@ -5,6 +5,7 @@
 @using System.ComponentModel.DataAnnotations
 @inject IHttpClientFactory HttpClientFactory
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
 
 
 <PageTitle>Edit Device</PageTitle>
@@ -39,7 +40,7 @@
 	</div>
 
 	@*https://learn.microsoft.com/en-us/aspnet/core/blazor/fundamentals/routing?view=aspnetcore-10.0*@
-	<button type="submit" class="btn btn-primary" @onclick='() => NavigationManager.NavigateTo("/devices")'>Update Device</button>
+	<button type="submit" class="btn btn-primary">Update Device</button>
 	<button type="button" class="btn btn-secondary ms-2" @onclick='() => NavigationManager.NavigateTo("/devices")'>Back to Devices</button>
 	<button type="button" class="btn btn-outline-secondary ms-2" @onclick="ClearEditForm">Clear Form</button>
 
@@ -51,6 +52,24 @@
 	<DataAnnotationsValidator />
 	<ValidationSummary />
 </EditForm>
+@if (showResultModal)
+{
+	<div class="modal d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.4);">
+		<div class="modal-dialog">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title">@((updateSucceeded ? "Success" : "Update Failed"))</h5>
+				</div>
+				<div class="modal-body">
+					<p>@modalMessage</p>
+				</div>
+				<div class="modal-footer">
+					<button class="btn btn-primary" @onclick="AcknowledgeResult">OK</button>
+				</div>
+			</div>
+		</div>
+	</div>
+}
 
 
 
@@ -103,6 +122,10 @@
 	private string? statusMessage;
 	private bool isError;
 
+	private bool showResultModal;
+	private bool updateSucceeded;
+	private string modalMessage = string.Empty;
+
 	private async Task HandleUpdateAsync()
 	{
 		try
@@ -115,28 +138,36 @@
 
 			if (response.IsSuccessStatusCode)
 			{
-				isError = false;
-				statusMessage = "Device updated successfully!";
+				updateSucceeded = true;
+				modalMessage = "Device updated successfully.";
+				showResultModal = true;
 			}
 			else
 			{
-				isError = true;
-
-				// If the server responds with an error status code, it indicates that there was an issue updating the device. 
-				// The UI will then read the error message from the response and display it to the user.
+				updateSucceeded = false;
 				var error = await response.Content.ReadAsStringAsync();
-				statusMessage = $"Error updating device: {(int)response.StatusCode} - {error}";
+				modalMessage = $"Update failed: {(int)response.StatusCode} - {error}";
+				showResultModal = true;
+
 			}
 
 		}
 		catch (Exception ex)
 		{
-			isError = true;
-			statusMessage = $"An error occurred while updating the device: {ex.Message}";
+			updateSucceeded = false;
+			modalMessage = $"An error occurred while updating: {ex.Message}";
+			showResultModal = true;
+		}
+
+	}
+	private void AcknowledgeResult()
+	{
+		showResultModal = false;
+		if (updateSucceeded)
+		{
+			NavigationManager.NavigateTo("/devices");
 		}
 	}
-
-
 
 	private void ClearEditForm()
 	{
@@ -144,5 +175,7 @@
 		editModel = new EditDeviceFromModel();
 		statusMessage = null;
 	}
+
+	
 
 }

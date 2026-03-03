@@ -244,5 +244,50 @@ namespace HomeLabManager.API.Services
             return MapToDataTransfer(device);
 
         }
+        public async Task<DeviceStatsResponse> GetDeviceStatsAsync()
+        {
+            //gets the total number of devices in the system, this is a simple count query that will be fast and efficient even with a large number of devices, this will allow us to provide some basic stats to the user about their device inventory
+            var totalDevices = await dbContext.Devices.CountAsync();
+
+            //gets the number of devices that have a serial number, this is a count query with a filter
+            //that will count only the devices that have a non-empty serial number
+            var withSerialNumber = await dbContext.Devices.CountAsync(device => !string.IsNullOrEmpty(device.SerialNumber));
+
+            //gets the number of devices that do not have a serial number, this is a count query with a filter
+            //that will count only the devices that have an empty or null serial number
+            var withoutSerialNumber = await dbContext.Devices.CountAsync(device => string.IsNullOrEmpty(device.SerialNumber));
+
+            //gets the number of devices that have a nickname, this is a count query with a filter
+            //that will count only the devices that have a non-empty nickname
+            var withNickName = await dbContext.Devices.CountAsync(device => !string.IsNullOrEmpty(device.NickName));
+
+
+            //gets the number of devices that do not have a nickname, this is a count query with a filter
+            //that will count only the devices that have an empty or null nickname
+            var withoutNickName = await dbContext.Devices.CountAsync(device => string.IsNullOrEmpty(device.NickName));
+
+            //gets the number of devices that have a location, this is a count query with a filter
+            //that will count only the devices that have a non-empty location
+            var withLocation = await dbContext.Devices.CountAsync(device => !string.IsNullOrEmpty(device.Location));
+
+            //gets the number of devices that do not have a location, this is a count query with a filter
+            //that will count only the devices that have an empty or null location
+            var withoutLocation = await dbContext.Devices.CountAsync(device => string.IsNullOrEmpty(device.Location));
+
+            //gets the most recent device added to the system, this is a query that orders the devices by created date and takes the first one
+            var lastAddedUtc = await dbContext.Devices.OrderByDescending(d => d.CreatedAtUtc).Select(d => (DateTime?)d.CreatedAtUtc).FirstOrDefaultAsync();
+
+            return new DeviceStatsResponse
+            {
+                TotalDevices = totalDevices,
+                WithSerialNumber = withSerialNumber,
+                WithoutSerialNumber = withoutSerialNumber,
+                WithNickName = withNickName,
+                WithoutNickName = withoutNickName,
+                WithLocation = withLocation,
+                WithoutLocation = withoutLocation,
+                LastAddedUtc = lastAddedUtc
+            };
+        }
     }
 }
