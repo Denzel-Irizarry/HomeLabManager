@@ -15,5 +15,7 @@
                 return !string.IsNullOrWhiteSpace(ManualSerial);
             }
         }
+
+
     }
 }

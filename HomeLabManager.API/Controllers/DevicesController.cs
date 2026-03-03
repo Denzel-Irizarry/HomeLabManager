@@ -112,6 +112,7 @@ namespace HomeLabManager.API.Controllers
             }
         }
 
+        //needs exception handling for if there is an error during the retrieval process
         //get request to get all devices in the system, including related product and vendor information
         [HttpGet]
         public async Task<ActionResult<List<Device>>> GetDevices()
@@ -119,7 +120,8 @@ namespace HomeLabManager.API.Controllers
             var devices = await deviceService.GetAllDevicesAsync();
             return Ok(devices);
         }
-    
+
+        //needs exception handling for if device with id is not found
         //get request to get a specific device by id, including related product and vendor information
         [HttpGet("{id:guid}")]
         public async Task<ActionResult<Device>> GetDeviceById(Guid id)
@@ -131,7 +133,8 @@ namespace HomeLabManager.API.Controllers
             }
             return Ok(device);
         }
-    
+
+        //needs exception handling for if device with id is not found, or if there is an error during the delete process
         //delete request to delete a specific device by id
         [HttpDelete("{id:guid}")]
         public async Task<IActionResult> DeleteDevice(Guid id)
@@ -147,6 +150,33 @@ namespace HomeLabManager.API.Controllers
             return NoContent();
         }
 
-
+        [HttpPut("{id:guid}")]
+        public async Task<IActionResult> UpdateDevice(Guid id, [FromBody] UpdateDeviceRequest request)
+        {
+            try
+            {
+                var device = await deviceService.UpdateDeviceAsync(id, request);
+                if (device == null)
+                {
+                    return NotFound($"Device with id '{id}' was not found.");
+                }
+                return Ok(device);
+            }
+            catch (SerialNumberMissingException ex)
+            {
+                logger.LogWarning(ex, "Serial number missing during device update.");
+                return BadRequest(ex.Message);
+            }
+            catch (DuplicateSerialNumberException ex)
+            {
+                logger.LogWarning(ex, "Duplicate serial number during device update.");
+                return Conflict(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "An error occurred while updating the device.");
+                return StatusCode(500, "An error occurred while updating the device.");
+            }
+        }
     }
 }

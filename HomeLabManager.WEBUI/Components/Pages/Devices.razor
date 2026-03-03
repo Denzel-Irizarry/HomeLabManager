@@ -1,8 +1,11 @@
 ﻿@page "/devices"
 @using System.Net.Http.Json
 @using HomeLabManager.WEBUI.Models
+@rendermode InteractiveServer
 @* https://learn.microsoft.com/en-us/dotnet/api/system.net.http.ihttpclientfactory.createclient?view=net-10.0-pp#remarks*@
 @inject IHttpClientFactory HttpClientFactory
+@inject NavigationManager NavigationManager
+
 
 <PageTitle>Devices</PageTitle>
 
@@ -23,20 +26,81 @@ else if (devices.Count == 0)
 }
 else
 {
-    <table class="table table-striped">
+    <div class="row g-3 mb-3">
+
+		@*search for device*@
+		<div class="col-12">
+			<input 
+                class="form-control" 
+                placeholder="Search for Device"
+                @bind="searchTerm"
+                @bind:event="oninput" />
+		</div>
+    </div>
+
+    <table class="table table-striped devices-table">
         <thead>
             <tr>
-                <th>Serial</th>
-                <th>Nickname</th>
-                <th>Location</th>
-                <th>Product</th>
-                <th>Model</th>
-                <th>Vendor</th>
-                <th>Created (UTC)</th>
+                <th>
+                    <button 
+                        type="button" 
+                        class="sort-btn"
+                        @onclick='() => SetSort("Serial")'>Serial
+                        <span class=" sort-icon">@GetSortIcon("Serial")</span>
+                    </button>
+                </th>
+                <th>
+                    <button 
+                        type="button"
+                        class="sort-btn"
+                        @onclick='() => SetSort("Nickname")'>NickName
+						<span class=" sort-icon">@GetSortIcon("Nickname")</span>
+                    </button>
+                </th>
+                <th>
+                    <button 
+                        type="button"
+                        class="sort-btn"
+                        @onclick='() => SetSort("Location")'>Location
+						<span class=" sort-icon">@GetSortIcon("Location")</span>
+                    </button>
+                </th>
+                <th>
+                    <button 
+                        type="button" 
+                        class="sort-btn"
+                        @onclick='() => SetSort("Product")'>Product
+						<span class=" sort-icon">@GetSortIcon("Product")</span>
+                    </button>
+                </th>
+                <th>
+                    <button 
+                        type="button" 
+                        class="sort-btn"
+                        @onclick='() => SetSort("Model")'>Model
+						<span class=" sort-icon">@GetSortIcon("Model")</span>
+                    </button>
+                </th>
+                <th>
+                    <button 
+                        type="button" 
+                        class="sort-btn"
+                        @onclick='() => SetSort("Vendor")'>Vendor
+						<span class=" sort-icon">@GetSortIcon("Vendor")</span>
+                    </button>
+                </th>
+                <th>
+                    <button 
+                        type="button" 
+                        class="sort-btn"
+                        @onclick='() => SetSort("Created")'>Created (UTC)
+						<span class=" sort-icon">@GetSortIcon("Created")</span>
+                    </button>
+                </th>
             </tr>
         </thead>
         <tbody>
-            @foreach (var d in devices)
+            @foreach (var d in SortedDevices)
             {
                 <tr>
                     <td>@d.SerialNumber</td>
@@ -46,6 +110,23 @@ else
                     <td>@d.ModelNumber</td>
                     <td>@d.VendorName</td>
                     <td>@d.CreatedAtUtc</td>
+                    <td>
+                        <button 
+                            type="button"
+                            class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center"
+                            @onclick='()=>NavigationManager.NavigateTo($"/devices/{d.Id}/edit")'
+							title="Edit Device">
+                            <svg xmlns="http://www.w3.org/2000/svg" 
+                            viewBox="0 0 24 24" 
+                            fill="currentColor" 
+                            width="20"
+                            height="20"
+                            aria-hidden="true">
+                            <path d="M21.731 2.269a2.625 2.625 0 0 0-3.712 0l-1.157 1.157 3.712 3.712 1.157-1.157a2.625 2.625 0 0 0 0-3.712ZM19.513 8.199l-3.712-3.712-8.4 8.4a5.25 5.25 0 0 0-1.32 2.214l-.8 2.685a.75.75 0 0 0 .933.933l2.685-.8a5.25 5.25 0 0 0 2.214-1.32l8.4-8.4Z" />
+                            <path d="M5.25 5.25a3 3 0 0 0-3 3v10.5a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3V13.5a.75.75 0 0 0-1.5 0v5.25a1.5 1.5 0 0 1-1.5 1.5H5.25a1.5 1.5 0 0 1-1.5-1.5V8.25a1.5 1.5 0 0 1 1.5-1.5h5.25a.75.75 0 0 0 0-1.5H5.25Z" />
+                            </svg>
+                        </button>
+                    </td>
                 </tr>
             }
         </tbody>
@@ -57,6 +138,7 @@ else
 
 @code
 {
+    private string searchTerm = string.Empty;
     private List<DeviceResponseDataTransferObject> devices = [];
     private bool isLoading = true;
     private string? errorMessage;
@@ -82,4 +164,74 @@ else
             isLoading = false;
         }
     }
+
+    private IEnumerable<DeviceResponseDataTransferObject> FilteredDevices =>
+            devices.Where(device =>
+            string.IsNullOrWhiteSpace(searchTerm) ||
+            (device.SerialNumber?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? true) ||
+            (device.NickName?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false )||
+            (device.Location?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false )||
+            (device.ProductName?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (device.ModelNumber?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false )||
+            (device.VendorName?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false)
+            );
+
+    private IEnumerable<DeviceResponseDataTransferObject> FilterAndSortedDevices =>
+            FilteredDevices.OrderByDescending(devices => devices.CreatedAtUtc);
+
+    private string sortColumn = "Created";
+    private bool sortAscending = false;
+
+    private void SetSort(string column)
+    {
+        if (sortColumn == column)
+        {
+            sortAscending = !sortAscending;
+        }
+        else
+        {
+            sortColumn = column;
+            sortAscending = true;
+        }
+    }
+
+    private IEnumerable<DeviceResponseDataTransferObject> SortedDevices
+    {
+        get
+        {
+            var query = FilteredDevices;
+
+            return(sortColumn, sortAscending) 
+            switch
+            {
+                ("Serial", true) => query.OrderBy(d => d.SerialNumber),
+                ("Serial", false) => query.OrderByDescending(d => d.SerialNumber),
+                ("Nickname", true) => query.OrderBy(d => d.NickName),
+                ("Nickname", false) => query.OrderByDescending(d => d.NickName),
+                ("Location", true) => query.OrderBy(d => d.Location),
+                ("Location", false) => query.OrderByDescending(d => d.Location),
+                ("Product", true) => query.OrderBy(d => d.ProductName),
+                ("Product", false) => query.OrderByDescending(d => d.ProductName),
+                ("Model", true) => query.OrderBy(d => d.ModelNumber),
+                ("Model", false) => query.OrderByDescending(d => d.ModelNumber),
+                ("Vendor", true) => query.OrderBy(d => d.VendorName),
+                ("Vendor", false) => query.OrderByDescending(d => d.VendorName),
+                ("Created", true) => query.OrderBy(d => d.CreatedAtUtc),
+                ("Created", false) => query.OrderByDescending(d => d.CreatedAtUtc),
+                _ => query
+            };
+
+        }
+    }
+
+	// Helper method to get the appropriate sort icon based on the current sort state
+    private string GetSortIcon(string column)
+    {
+        if (!string.Equals(sortColumn, column, StringComparison.OrdinalIgnoreCase))
+            return "↕";
+
+        return sortAscending ? "▲" : "▼";
+    }
+
+
 }
