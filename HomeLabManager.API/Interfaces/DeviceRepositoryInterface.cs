@@ -15,7 +15,12 @@ namespace HomeLabManager.API.Interfaces
         //get a specific device by id, including related product and vendor information
         Task<Device?> GetDeviceByIdAsync(Guid id);
 
+        //get a specific device by id for update, including related product and vendor information
+        Task<Device?> GetForUpdateByIdAsync(Guid id);
+
         //delete a specific device by id
         Task<bool> DeleteByIdAsync(Guid id);
+
+
     }
 }

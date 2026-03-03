@@ -53,6 +53,14 @@ namespace HomeLabManager.API.Infrastructure
             context.Devices.Remove(device);
             return true;
         }
+        
+        public async Task<Device?> GetForUpdateByIdAsync(Guid id)
+        {
+            return await context.Devices
+            .Include(device => device.Product)
+            .ThenInclude(product => product.Vendor)
+            .FirstOrDefaultAsync(device => device.Id == id);
+        }
 
     }
 }

@@ -18,16 +18,16 @@ namespace HomeLabManager.API.Services
         private readonly ApplicationDBContext dbContext;
 
         public DeviceService(
-            ScanServiceInterface scanService, 
-            VendorLookupInterface vendorLookup, 
-            DeviceRepositoryInterface deviceRepository, 
+            ScanServiceInterface scanService,
+            VendorLookupInterface vendorLookup,
+            DeviceRepositoryInterface deviceRepository,
             ApplicationDBContext dbContext)
         {
             this.scanService = scanService;
             this.vendorLookup = vendorLookup;
             this.deviceRepository = deviceRepository;
             this.dbContext = dbContext;
-            
+
         }
 
         //helpful info about async to reference 
@@ -47,14 +47,14 @@ namespace HomeLabManager.API.Services
             var serial = await scanService.ExtractSerialAsync(request);
 
             //stop the process early if no serial number is found, don't start with vendor lookup or database operations
-            if(string.IsNullOrWhiteSpace(serial))
+            if (string.IsNullOrWhiteSpace(serial))
             {
                 throw new SerialNumberMissingException("Serial number could not be extracted from the image.");
             }
 
             //check for duplicate serial number before checking with vendor lookup or database operations and stops device from being created
             var existingDevice = await deviceRepository.SerialExistsAsynch(serial);
-            if(existingDevice)
+            if (existingDevice)
             {
                 throw new DuplicateSerialNumberException("A device with the same serial number already exists.");
             }
@@ -79,7 +79,7 @@ namespace HomeLabManager.API.Services
             //this is will send the save request
             await dbContext.SaveChangesAsync();
 
-           
+
             return MapToDataTransfer(device);
 
         }
@@ -95,7 +95,7 @@ namespace HomeLabManager.API.Services
         public async Task<DeviceResponseDataTransferObject?> GetDeviceByIdAsync(Guid id)
         {
             var device = await deviceRepository.GetDeviceByIdAsync(id);
-            if(device == null)
+            if (device == null)
                 return null;
 
             return MapToDataTransfer(device);
@@ -105,7 +105,7 @@ namespace HomeLabManager.API.Services
         public async Task<bool> DeleteDeviceByIdAsync(Guid id)
         {
             var deleted = await deviceRepository.DeleteByIdAsync(id);
-            if(deleted)
+            if (deleted)
             {
                 //this will let the ui know the delete was unsuccessful and to update the list of devices
                 return false;
@@ -121,8 +121,8 @@ namespace HomeLabManager.API.Services
         {
             return new DeviceResponseDataTransferObject
             {
-                Id=device.Id,
-                SerialNumber=device.SerialNumber,
+                Id = device.Id,
+                SerialNumber = device.SerialNumber,
                 NickName = device.NickName,
                 Location = device.Location,
                 CreatedAtUtc = device.CreatedAtUtc,
@@ -132,16 +132,16 @@ namespace HomeLabManager.API.Services
 
             };
         }
-    
+
         public async Task<DeviceResponseDataTransferObject> RegisterManualDeviceAsync(ManualDeviceRegisterRequest request)
         {
-            if(string.IsNullOrWhiteSpace(request.SerialNumber) && string.IsNullOrWhiteSpace(request.NickName))
+            if (string.IsNullOrWhiteSpace(request.SerialNumber) && string.IsNullOrWhiteSpace(request.NickName))
                 throw new SerialNumberMissingException("Provide at least SerialNumber or NickName");
 
             if (!string.IsNullOrWhiteSpace(request.SerialNumber))
             {
                 var existsAlready = await deviceRepository.SerialExistsAsynch(request.SerialNumber);
-                if(existsAlready)
+                if (existsAlready)
                     throw new DuplicateSerialNumberException("A device with the same serial number already exists.");
             }
 
@@ -161,7 +161,7 @@ namespace HomeLabManager.API.Services
                 VendorId = vendor.Id,
                 Vendor = vendor
             };
-            
+
             //sets the device info for manual entry
             var device = new Device
             {
@@ -174,7 +174,7 @@ namespace HomeLabManager.API.Services
                 CreatedAtUtc = DateTime.UtcNow
             };
 
-          //adds the created device so it can persist
+            //adds the created device so it can persist
             await deviceRepository.AddAsync(device);
 
             //this is will send the save request
@@ -184,6 +184,65 @@ namespace HomeLabManager.API.Services
 
         }
 
+        public async Task<DeviceResponseDataTransferObject?> UpdateDeviceAsync(Guid id, UpdateDeviceRequest request)
+        {
+            //trim the incoming data to remove any leading or trailing whitespace, this will help with consistency and prevent issues with duplicate serial numbers that are actually the same but have extra spaces
+            var serial = request.SerialNumber?.Trim();
+            var nickName = request.NickName?.Trim();
+            var location = request.Location?.Trim();
+            var productName = request.ProductName?.Trim();
+            var modelNumber = request.ModelNumber?.Trim();
+            var vendorName = request.VendorName?.Trim();
 
+            //get the device for update, this will track the entity and allow us to make changes and then call save changes to persist those changes
+            var device = await deviceRepository.GetForUpdateByIdAsync(id);
+
+            //if the device doesn't exist return null so the ui can handle it and not found response
+            if (device == null)
+                return null;
+
+            //if the serial number is being updated, check for duplicates before updating and saving, this will stop the update and
+            //return an error to the user if they try to update to a serial number that already exists in the system
+            if (!string.IsNullOrWhiteSpace(serial) && serial != device.SerialNumber)
+            {
+                var existsAlready = await deviceRepository.SerialExistsAsynch(serial);
+                if (existsAlready)
+                    throw new DuplicateSerialNumberException("A device with the same serial number already exists.");
+                device.SerialNumber = serial;
+            }
+            else if(serial is not null)
+            {
+                //allow explicit clearing of the serial number if the user is trying to remove it, but only if they have a nickname so we don't end up with a device that has no way to identify it
+                device.SerialNumber = serial;
+            }
+            //update the other fields if they are not null, this allows for partial updates and doesn't require the user to send all the data if they only want to update one or two fields
+            if (nickName is not null) { device.NickName = nickName;}
+            if (location is not null) { device.Location = location;}
+
+            if (device.Product != null)
+            {
+                //if the product name or model number is being updated, we need to update the product entity as well, this will allow us to keep the relationships intact and not end up with orphaned entities or inconsistent data
+                if (productName is not null) { device.Product.ProductName = productName; }
+                if (modelNumber is not null) { device.Product.ModelNumber = modelNumber; }
+
+                //if the vendor name is being updated, we need to update the vendor entity as well, this will allow us to keep the relationships intact and not end up with orphaned entities or inconsistent data
+                if(device.Product.Vendor != null && vendorName is not null) 
+                { 
+                    device.Product.Vendor.VendorName = vendorName; 
+                }
+            }
+
+            //if the user is trying to update the device and they are removing the serial number, make sure they have a nickname so we don't end up with a device that has no way to identify it
+            if (string.IsNullOrWhiteSpace(device.SerialNumber) && string.IsNullOrWhiteSpace(device.NickName))
+            {
+                throw new SerialNumberMissingException("Provide at least SerialNumber or NickName");
+            }
+
+
+            //this is will send the save request and persist the changes to the database
+            await dbContext.SaveChangesAsync();
+            return MapToDataTransfer(device);
+
+        }
     }
 }
