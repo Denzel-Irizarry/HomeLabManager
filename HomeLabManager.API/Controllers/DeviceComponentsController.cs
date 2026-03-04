@@ -63,21 +63,32 @@ namespace HomeLabManager.API.Controllers
         {
             try
             {
+                // Load the device-component record by its ID
+                var record = await deviceComponentService.GetByIdAsync(componentId);
+                if (record == null)
+                    return NotFound($"Component record with ID {componentId} was not found.");
+                
+
+                // Verify it belongs to the device from the route
+                if (record.DeviceId != deviceId)
+                    return BadRequest("This component record does not belong to the specified device.");
+
+                // 3) Safe to delete
                 var deleted = await deviceComponentService.RemoveComponentFromDeviceAsync(componentId);
                 if (!deleted)
-                    return NotFound($"Component with ID {componentId} not found in device with ID {deviceId}.");
+                    return NotFound($"Component record with ID {componentId} was not found.");
 
-                return NoContent(); // Return 204 No Content on successful deletion
-
+                return NoContent();
             }
             catch (ArgumentException ex)
             {
-                return BadRequest(ex.Message); // Return bad request for validation errors
+                return BadRequest(ex.Message);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while removing the component from the device.");
             }
         }
+
     }
 }

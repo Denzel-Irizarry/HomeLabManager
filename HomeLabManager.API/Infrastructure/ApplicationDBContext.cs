@@ -145,6 +145,11 @@ namespace HomeLabManager.API.Infrastructure
             modelBuilder.Entity<DeviceComponent>()
                 .HasIndex(dc => new { dc.DeviceId, dc.ComponentId });
 
+            modelBuilder.Entity<DeviceComponent>()
+                .HasOne<Component>()    // DeviceComponent references one Component
+                .WithMany()             // Component can be in many DeviceComponents
+                .HasForeignKey(dc => dc.ComponentId)
+                .OnDelete(DeleteBehavior.Cascade);  // If component deleted, delete all its device records
         }
 
 

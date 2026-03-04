@@ -5,56 +5,200 @@
 @using System.ComponentModel.DataAnnotations
 @inject IHttpClientFactory HttpClientFactory
 @inject NavigationManager NavigationManager
-@inject IJSRuntime JSRuntime
+
 
 
 <PageTitle>Edit Device</PageTitle>
 
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+	<div class="alert alert-danger">@errorMessage</div>
+}
+else { 
+<div class="container py-4">
+	<h3>EditDevice</h3>
 
-<h3>EditDevice</h3>
 
-<EditForm Model="editModel" OnValidSubmit="HandleUpdateAsync" FormName="edit-device-form">
-	<div class="mb-3">
-		<label class="form-label">Serial Number</label>
-		<InputText class="form-control" @bind-Value="editModel.SerialNumber" />
-	</div>
-	<div class="mb-3">
-		<label class="form-label">Nickname</label>
-		<InputText class="form-control" @bind-Value="editModel.NickName" />
-	</div>
-	<div class="mb-3">
-		<label class="form-label">Location</label>
-		<InputText class="form-control" @bind-Value="editModel.Location" />
-	</div>
-	<div class="mb-3">
-		<label class="form-label">Product</label>
-		<InputText class="form-control" @bind-Value="editModel.ProductName" />
-	</div>
-	<div class="mb-3">
-		<label class="form-label">Model</label>
-		<InputText class="form-control" @bind-Value="editModel.ModelNumber" />
-	</div>
-	<div class="mb-3">
-		<label class="form-label">Vendor</label>
-		<InputText class="form-control" @bind-Value="editModel.VendorName" />
+	<EditForm Model="editModel" OnValidSubmit="HandleUpdateAsync" FormName="edit-device-form">
+		<div class="mb-3">
+			<label class="form-label">Serial Number</label>
+			<InputText class="form-control" @bind-Value="editModel.SerialNumber" />
+		</div>
+		<div class="mb-3">
+			<label class="form-label">Nickname</label>
+			<InputText class="form-control" @bind-Value="editModel.NickName" />
+		</div>
+		<div class="mb-3">
+			<label class="form-label">Location</label>
+			<InputText class="form-control" @bind-Value="editModel.Location" />
+		</div>
+		<div class="mb-3">
+			<label class="form-label">Product</label>
+			<InputText class="form-control" @bind-Value="editModel.ProductName" />
+		</div>
+		<div class="mb-3">
+			<label class="form-label">Model</label>
+			<InputText class="form-control" @bind-Value="editModel.ModelNumber" />
+		</div>
+		<div class="mb-3">
+			<label class="form-label">Vendor</label>
+			<InputText class="form-control" @bind-Value="editModel.VendorName" />
+		</div>
+
+		@*https://learn.microsoft.com/en-us/aspnet/core/blazor/fundamentals/routing?view=aspnetcore-10.0*@
+		<button type="submit" class="btn btn-primary">Update Device</button>
+		<button type="button" class="btn btn-secondary ms-2" @onclick='() => NavigationManager.NavigateTo("/devices")'>Back to Devices</button>
+		<button type="button" class="btn btn-outline-secondary ms-2" @onclick="ClearEditForm">Clear Form</button>
+
+
+		<DataAnnotationsValidator />
+		<ValidationSummary />
+	</EditForm>
+
+	@*component management*@
+	<div class="card shadow-sm mt-4">
+		<div class="card-header bg-primary text-white">
+			<h5 class="mb-0">Installed Components</h5>
+		</div>
+		<div class="card-body">
+			@if (deviceComponents == null)
+			{
+				<p><em>Loading components...</em></p>
+			}
+			else if (!deviceComponents.Any())
+			{
+				<div class="alert alert-info">
+					<p>No components installed in this device yet.</p>
+				</div>
+			}
+			else
+			{
+				<div class="table-responsive">
+					<table class="table table-hover">
+						<thead>
+							<tr>
+								<th>Component</th>
+								<th>Type</th>
+								<th>Serial Number</th>
+								<th>Installed Date</th>
+								<th>Actions</th>
+							</tr>
+						</thead>
+						<tbody>
+							@foreach (var dc in deviceComponents)
+							{
+								<tr>
+									<td>@dc.ComponentName</td>
+									<td>@dc.ComponentType</td>
+									<td>@(dc.SerialNumber ?? "N/A")</td>
+									<td>@(dc.InstalledDate?.ToString("MM/dd/yyyy") ?? "N/A")</td>
+									<td>
+										<button class="btn btn-sm btn-danger" @onclick="() => ConfirmRemoveComponent(dc)">
+											Remove
+										</button>
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			}
+
+			<button class="btn btn-primary mt-3" @onclick="ShowAddComponentModal">
+				+ Add Component
+			</button>
+		</div>
 	</div>
 
-	@*https://learn.microsoft.com/en-us/aspnet/core/blazor/fundamentals/routing?view=aspnetcore-10.0*@
-	<button type="submit" class="btn btn-primary">Update Device</button>
-	<button type="button" class="btn btn-secondary ms-2" @onclick='() => NavigationManager.NavigateTo("/devices")'>Back to Devices</button>
-	<button type="button" class="btn btn-outline-secondary ms-2" @onclick="ClearEditForm">Clear Form</button>
-
-	@if (!string.IsNullOrWhiteSpace(statusMessage))
+	@*remove component confirmation*@
+	@if(componentToRemove != null)
 	{
-		<p class="mt-3 @(isError ? "text-danger" : "text-success")">@statusMessage</p>
+		<div class="modal show d-block modal-overlay" tabindex="-1">
+			<div class="modal-dialog">
+				<div class="modal-content">
+					<div class="modal-header">
+						<h5 class="modal-title">Confirm Remove Component</h5>
+						<button type="button" class="btn-close" @onclick="CancelRemove"></button>
+					</div>
+					<div class="modal-body">
+						<p>Are you sure you want to remove <strong>@componentToRemove.ComponentName</strong> from this device?</p>
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-secondary" @onclick="CancelRemove">Cancel</button>
+						<button type="button" class="btn btn-danger" @onclick="HandleRemoveComponent">Remove Component</button>
+					</div>
+				</div>
+			</div>
+		</div>
 	}
 
-	<DataAnnotationsValidator />
-	<ValidationSummary />
-</EditForm>
+	@* ADD COMPONENT MODAL *@
+	@if (showAddModal)
+	{
+		<div class="modal show d-block modal-overlay" tabindex="-1">
+			<div class="modal-dialog">
+				<div class="modal-content">
+					<div class="modal-header">
+						<h5 class="modal-title">Add Component to Device</h5>
+						<button type="button" class="btn-close" @onclick="CancelAddComponent"></button>
+					</div>
+					<div class="modal-body">
+						@if (availableComponents == null)
+						{
+							<p><em>Loading available components...</em></p>
+						}
+						else if (!availableComponents.Any())
+						{
+							<div class="alert alert-warning">
+								<p>No components available. Please create components first.</p>
+							</div>
+						}
+						else
+						{
+							<div class="mb-3">
+								<label class="form-label">Select Component</label>
+								<select class="form-select" @bind="selectedComponentId">
+									<option value="@Guid.Empty">-- Select a component --</option>
+									@foreach (var comp in availableComponents)
+									{
+										<option value="@comp.Id">@comp.Name (@comp.ComponentType)</option>
+									}
+								</select>
+							</div>
+							<div class="mb-3">
+								<label class="form-label">Serial Number (Optional)</label>
+								<input type="text" class="form-control" @bind="newComponentSerialNumber" />
+							</div>
+							<div class="mb-3">
+								<label class="form-label">Installed Date (Optional)</label>
+								<input type="date" class="form-control" 
+								@bind="newComponentInstalledDate" @bind:format="yyyy-MM-dd" />
+							</div>
+							<div class="mb-3">
+								<label class="form-label">Notes (Optional)</label>
+								<textarea class="form-control" rows="3" @bind="newComponentNotes"></textarea>
+							</div>
+						}
+						@if (!string.IsNullOrWhiteSpace(addComponentError))
+						{
+							<div class="alert alert-danger">@addComponentError</div>
+						}
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-secondary" @onclick="CancelAddComponent">Cancel</button>
+						<button type="button" class="btn btn-primary" @onclick="HandleAddComponent" disabled="@(selectedComponentId == Guid.Empty)">
+							Add Component
+						</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	}
+
+</div>
 @if (showResultModal)
 {
-	<div class="modal d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.4);">
+	<div class="modal d-block modal-overlay" tabindex="-1">
 		<div class="modal-dialog">
 			<div class="modal-content">
 				<div class="modal-header">
@@ -70,12 +214,14 @@
 		</div>
 	</div>
 }
+}
+
 
 
 
 @code {
 
-	private string errorMessage = string.Empty;
+	private string? errorMessage;
 	private EditDeviceFromModel editModel = new EditDeviceFromModel();
 
 	public class EditDeviceFromModel: IValidatableObject
@@ -101,26 +247,44 @@
 
 	protected override async Task OnInitializedAsync()
 	{
-		var client = HttpClientFactory.CreateClient("HomeLabApi");
-
-		var device = await client.GetFromJsonAsync<DeviceResponseDataTransferObject>($"api/devices/{Id}");
-
-		if(device is null)
+		try
 		{
-			errorMessage = "Device not found.";
-			return;
+			var client = HttpClientFactory.CreateClient("HomeLabApi");
+
+			var response = await client.GetAsync($"api/devices/{Id}");
+
+			if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+			{
+				errorMessage = "Device not found.";
+				return;
+			}
+			// This ensures that any non-success status code (other than 404 which is handled above) will throw an exception, which is caught and displayed as an error message.
+			response.EnsureSuccessStatusCode();
+
+			var device = await client.GetFromJsonAsync<DeviceResponseDataTransferObject>($"api/devices/{Id}");
+
+			if (device == null)
+			{
+				errorMessage = "Device not found.";
+				return;
+			}
+
+
+			editModel.SerialNumber = device.SerialNumber;
+			editModel.NickName = device.NickName;
+			editModel.Location = device.Location;
+			editModel.ProductName = device.ProductName;
+			editModel.ModelNumber = device.ModelNumber;
+			editModel.VendorName = device.VendorName;
+
+			// Load the components installed in this device once it is actually called
+			await LoadDeviceComponentsAsync();
 		}
-
-		editModel.SerialNumber = device.SerialNumber;
-		editModel.NickName = device.NickName;
-		editModel.Location = device.Location;
-		editModel.ProductName = device.ProductName;
-		editModel.ModelNumber = device.ModelNumber;
-		editModel.VendorName = device.VendorName;
+		catch (Exception ex)
+		{
+			errorMessage = $"Failed to load device details: {ex.Message}";
+		}
 	}
-
-	private string? statusMessage;
-	private bool isError;
 
 	private bool showResultModal;
 	private bool updateSucceeded;
@@ -160,6 +324,7 @@
 		}
 
 	}
+
 	private void AcknowledgeResult()
 	{
 		showResultModal = false;
@@ -173,9 +338,182 @@
 	{
 		// Clear the form by resetting the model and status message
 		editModel = new EditDeviceFromModel();
-		statusMessage = null;
 	}
 
-	
+	// Device components management
+	private List<DeviceComponent>? deviceComponents;
+	private List<Component>? availableComponents;
+
+	// to show components 
+	private bool showAddModal = false;
+
+	// to track which component is selected for adding or removing
+	private Guid selectedComponentId = Guid.Empty;
+	private DeviceComponent? componentToRemove;
+
+	private async Task LoadDeviceComponentsAsync()
+	{
+		if(Id== Guid.Empty) return;
+
+		try
+		{
+
+			var client = HttpClientFactory.CreateClient("HomeLabApi");
+
+			//this retrieves the list of components installed in the device with the specified Id from the API.
+			var devCompList = await client.GetFromJsonAsync<List<DeviceComponent>>($"api/devices/{Id}/components");
+
+			// get all components 
+			var allComponents = await client.GetFromJsonAsync<List<Component>>($"api/components");
+
+			if (devCompList != null && allComponents != null)
+			{
+				// this maps the device components to their corresponding component details by matching ComponentId with the list of all components retrieved from the API.
+				deviceComponents = devCompList.Select(DeviceComponent =>
+				{
+					var component = allComponents.FirstOrDefault(c => c.Id == DeviceComponent.ComponentId);
+					if (component != null)
+					{
+						DeviceComponent.ComponentName = component.Name;
+						DeviceComponent.ComponentType = component.ComponentType;
+						DeviceComponent.Manufacturer = component.Manufacturer;
+					}
+					return DeviceComponent;
+				}).ToList();
+			}
+
+		}
+		catch (Exception ex)
+		{
+			errorMessage = $"Failed to load device components: {ex.Message}";
+		}
+	}
+
+	private void ConfirmRemoveComponent(DeviceComponent dc)
+	{
+		componentToRemove = dc;
+	}
+
+	private void CancelRemove()
+	{
+		componentToRemove = null;
+	}
+
+	private async Task HandleRemoveComponent()
+	{
+		if (componentToRemove == null) return;
+
+		try
+		{
+			// This creates an HttpClient instance using the factory and the named client configuration "HomeLabApi".
+			var client = HttpClientFactory.CreateClient("HomeLabApi");
+
+			// This sends a DELETE request to the API to remove the specified component from the device.
+			var response = await client.DeleteAsync($"api/devices/{Id}/components/{componentToRemove.Id}");
+
+			if (response.IsSuccessStatusCode)
+			{
+				deviceComponents?.Remove(componentToRemove);
+				componentToRemove = null;
+				errorMessage = null;
+			}
+			else
+			{
+				var error = await response.Content.ReadAsStringAsync();
+				errorMessage = $"Failed to remove component: {(int)response.StatusCode} - {error}";
+			}
+		}
+		catch (Exception ex)
+		{
+			errorMessage = $"Error removing component: {ex.Message}";
+		}
+	}
+
+	// Add these fields after the existing component-related fields
+	private string? newComponentSerialNumber;
+	private DateTime? newComponentInstalledDate;
+	private string? newComponentNotes;
+	private string? addComponentError;
+
+	// Update ShowAddComponentModal to load available components
+	private async Task ShowAddComponentModal()
+	{
+		try
+		{
+			var client = HttpClientFactory.CreateClient("HomeLabApi");
+
+			// Load all components and allow reuse across devices
+			availableComponents = await client.GetFromJsonAsync<List<Component>>("api/components")
+				?? new List<Component>();
+
+			selectedComponentId = Guid.Empty;
+
+			// Clear previous input values and errors when opening the modal
+			newComponentSerialNumber = null;
+			newComponentInstalledDate = null;
+			newComponentNotes = null;
+			addComponentError = null; // Clear any previous errors
+			showAddModal = true;
+		}
+		catch (Exception ex)
+		{
+			// CHANGE: Use addComponentError instead of errorMessage
+			addComponentError = $"Failed to load available components: {ex.Message}";
+			showAddModal = true; // Still show modal so error is visible
+		}
+	}
+
+	// This method resets the state related to adding a component and hides the add component modal.
+	private void CancelAddComponent()
+	{
+		showAddModal = false;
+		selectedComponentId = Guid.Empty;
+		addComponentError = null;
+	}
+
+	// This method handles the logic for adding a new component to the device. It validates the input, sends a POST request to the API, and updates the UI based on the response.
+	private async Task HandleAddComponent()
+	{
+		// Validate that a component has been selected before attempting to add it to the device.
+		if (selectedComponentId == Guid.Empty)
+		{
+			addComponentError = "Please select a component.";
+			return;
+		}
+
+		try
+		{
+			var client = HttpClientFactory.CreateClient("HomeLabApi");
+
+			// This creates a new DeviceComponent object with the selected component ID and any additional details provided by the user (serial number, installed date, notes).
+			var newDeviceComponent = new DeviceComponent
+			{
+				DeviceId = Id,
+				ComponentId = selectedComponentId,
+				SerialNumber = newComponentSerialNumber,
+				InstalledDate = newComponentInstalledDate,
+				Notes = newComponentNotes
+			};
+
+			// This sends a POST request to the API to add the new component to the device. The API will process the request and return a response indicating success or failure.
+			var response = await client.PostAsJsonAsync($"api/devices/{Id}/components", newDeviceComponent);
+
+			if (response.IsSuccessStatusCode)
+			{
+				showAddModal = false;
+				await LoadDeviceComponentsAsync(); // Reload the list
+				addComponentError = null;
+			}
+			else
+			{
+				var error = await response.Content.ReadAsStringAsync();
+				addComponentError = $"Failed to add component: {error}";
+			}
+		}
+		catch (Exception ex)
+		{
+			addComponentError = $"Error adding component: {ex.Message}";
+		}
+	}
 
 }

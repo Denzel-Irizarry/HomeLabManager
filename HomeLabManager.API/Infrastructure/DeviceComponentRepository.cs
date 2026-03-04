@@ -5,12 +5,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HomeLabManager.API.Infrastructure
 {
-    public class DeviceComponentRespository:DeviceComponentRepositoryInterface
+    public class DeviceComponentRepository:DeviceComponentRepositoryInterface
     {
         // Repository for managing the many-to-many relationship between devices and components
         private readonly ApplicationDBContext applicationDBContext;
 
-        public DeviceComponentRespository(ApplicationDBContext applicationDBContext)
+        public DeviceComponentRepository(ApplicationDBContext applicationDBContext)
         {
             this.applicationDBContext = applicationDBContext;
         }
@@ -41,7 +41,7 @@ namespace HomeLabManager.API.Infrastructure
         public async Task<DeviceComponent> AddComponentToDeviceAsync(DeviceComponent deviceComponent)
         {
             //Generate new ID id not provided
-            if(deviceComponent.Id == Guid.Empty) deviceComponent.Id = Guid.NewGuid();
+            if (deviceComponent.Id == Guid.Empty) deviceComponent.Id = Guid.NewGuid();
 
             // Add a new device-component relationship to the DeviceComponents table
             applicationDBContext.DeviceComponents.Add(deviceComponent); // Add the new relationship to the DbSet
@@ -75,7 +75,9 @@ namespace HomeLabManager.API.Infrastructure
 
             // Remove the relationship from the DbSet
             applicationDBContext.DeviceComponents.Remove(deviceComponent);
-            return true;// Return true to indicate that the relationship was successfully removed
+            // Save changes to the database
+            await applicationDBContext.SaveChangesAsync();
+            return true;
         }
 
         public async Task<bool> IsComponentInstalledAsync(Guid deviceId, Guid componentId)
@@ -85,5 +87,8 @@ namespace HomeLabManager.API.Infrastructure
             return await applicationDBContext.DeviceComponents
                 .AnyAsync(dc => dc.DeviceId == deviceId && dc.ComponentId == componentId); 
         }
+
+
+
     }
 }

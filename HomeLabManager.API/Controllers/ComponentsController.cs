@@ -165,11 +165,11 @@ namespace HomeLabManager.API.Controllers
         //this will be used to get all components from a specific vendor, such as all components from Dell or HP
         // Get: api/components/vendor/{vendorId}
         [HttpGet("vendor/{vendorId}")]
-        public async Task<ActionResult<IEnumerable<Component>>> GetByVendor(Guid vendorID)
+        public async Task<ActionResult<IEnumerable<Component>>> GetByVendor(Guid vendorId)
         {
             try
             {
-                var componentsByVendor = await componentService.GetComponentsByVendorIdAsync(vendorID);
+                var componentsByVendor = await componentService.GetComponentsByVendorIdAsync(vendorId);
                 return Ok(componentsByVendor);
             }
             catch (ArgumentException ex)

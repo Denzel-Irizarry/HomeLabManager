@@ -50,7 +50,7 @@ namespace HomeLabManager.API
             builder.Services.AddDbContext<ApplicationDBContext>(options => options.UseSqlite(connectionString));
 
             //DeviceComponentRespositoryInterface, DeviceComponentRespository: Maps interface to implementation for device components
-            builder.Services.AddScoped<DeviceComponentRepositoryInterface, DeviceComponentRespository>();
+            builder.Services.AddScoped<DeviceComponentRepositoryInterface, DeviceComponentRepository>();
             builder.Services.AddScoped<DeviceComponentService>();
 
             var app = builder.Build();
