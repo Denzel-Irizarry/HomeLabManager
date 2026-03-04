@@ -23,13 +23,13 @@ namespace HomeLabManager.API
 
             //my services are build here a.k.a dependency injection?
 
-            //Device service which handles the input from the northbound api to southbound api
+            //Device service which handles the business logic for devices
             builder.Services.AddScoped<DeviceService>();
 
-            //scanning service
+            //scanning service and interface
             builder.Services.AddScoped<ScanServiceInterface, ScanService>();
 
-            //
+            // device repository which handles the database interactions for devices
             builder.Services.AddScoped<DeviceRepositoryInterface, DeviceRepository>();
 
             //vendor lookup service and test 
@@ -39,12 +39,19 @@ namespace HomeLabManager.API
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
 
+            
+            //ComponentRespositoryInterface, ComponentRepository: Maps interface to implementation
+            builder.Services.AddScoped<ComponentRepositoryInterface, ComponentRepository>();
+            //ComponentService: This is the service that will be used to handle the business logic for components
+            builder.Services.AddScoped<ComponentService>();
+
             //DBcontext for build services to know to use SQLite
             var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
             builder.Services.AddDbContext<ApplicationDBContext>(options => options.UseSqlite(connectionString));
 
-
-
+            //DeviceComponentRespositoryInterface, DeviceComponentRespository: Maps interface to implementation for device components
+            builder.Services.AddScoped<DeviceComponentRepositoryInterface, DeviceComponentRespository>();
+            builder.Services.AddScoped<DeviceComponentService>();
 
             var app = builder.Build();
 

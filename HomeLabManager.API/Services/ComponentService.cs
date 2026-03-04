@@ -13,10 +13,10 @@ namespace HomeLabManager.API.Services
          * Handles edge cases (empty GUIDs, null strings)
          * Throws exceptions for invalid inputs (controller will catch these)
          */
-        private readonly ComponentRespositoryInterface _repository;
+        private readonly ComponentRepositoryInterface _repository;
 
         // instance of ComponentRespositoryInterface as a parameter and assigns it to the private field This allows the service to interact with the data repository for components, enabling it to perform operations such as retrieving, creating, updating, and deleting components from the database.
-        public ComponentService(ComponentRespositoryInterface repository)
+        public ComponentService(ComponentRepositoryInterface repository)
         {
             _repository = repository;
         }

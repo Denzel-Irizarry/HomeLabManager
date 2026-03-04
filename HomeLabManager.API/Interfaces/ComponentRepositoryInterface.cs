@@ -1,7 +1,7 @@
 ﻿using HomeLabManager.Core.Entities;
 namespace HomeLabManager.API.Interfaces
 {
-    public interface ComponentRespositoryInterface
+    public interface ComponentRepositoryInterface
     {
         Task<IEnumerable<Component>> GetAllAsync();
         Task<Component?> GetByIdAsync(Guid id);

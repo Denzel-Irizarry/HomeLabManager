@@ -1,0 +1,118 @@
+﻿@page "/components/add"
+@using System.Net.Http.Json
+@using HomeLabManager.WEBUI.Models
+@rendermode InteractiveServer
+@inject IHttpClientFactory HttpClientFactory
+@inject NavigationManager NavigationManager
+
+<div class="container py-4">
+	<h1>Add Component</h1>
+	<p class="text-muted">Create a new hardware component that can be added to devices.</p>
+
+	@if (!string.IsNullOrEmpty(errorMessage))
+	{
+		<div class="alert alert-danger">@errorMessage</div>
+	}
+
+	<div class="card shadow-sm">
+		<div class="card-body">
+			<EditForm Model="component" OnValidSubmit="HandleSubmit">
+				<DataAnnotationsValidator/>
+				<ValidationSummary/>
+
+				<div class="mb-3">
+					<label for="name" class="form-label">Name *</label>
+					<InputText id="name" class="form-control" @bind-Value="component.Name" placeholder="e.g., Crucial 16GB DDR4" />
+					<ValidationMessage For="@(() => component.Name)" class="text-danger" />
+				</div>
+
+				<div class="mb-3">
+					<label for="type" class="form-label">Component Type</label>
+					<InputText id="type" class="form-control" @bind-Value="component.ComponentType" placeholder="e.g., RAM, CPU, Storage, NIC" />
+				</div>
+
+				<div class="mb-3">
+					<label for="manufacturer" class="form-label">Manufacturer</label>
+					<InputText id="manufacturer" class="form-control" @bind-Value="component.Manufacturer" placeholder="e.g., Crucial, Intel, Samsung" />
+				</div>
+
+				<div class="mb-3">
+					<label for="model" class="form-label">Model Number</label>
+					<InputText id="model" class="form-control" @bind-Value="component.ModelNumber" placeholder="e.g., CT16G4DFRA32A" />
+				</div>
+
+				<div class="mb-3">
+					<label for="specs" class="form-label">Specifications</label>
+					<InputTextArea id="specs" class="form-control" rows="3" @bind-Value="component.Specifications" placeholder="e.g., 16GB DDR4 3200MHz CL22" />
+				</div>
+
+				<div class="mb-3">
+					<label for="price" class="form-label">Unit Price</label>
+					<InputNumber id="price" class="form-control" @bind-Value="component.UnitPrice" placeholder="0.00" />
+					<ValidationMessage For="@(() => component.UnitPrice)" class="text-danger" />
+				</div>
+
+				<div class="d-flex gap-2">
+					<button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+						@if (isSubmitting)
+						{
+							<span class="spinner-border spinner-border-sm me-2"></span>
+							<span>Saving...</span>
+						}
+						else
+						{
+							<span>Save Component</span>
+						}
+					</button>
+					<a href="/components" class="btn btn-secondary">Cancel</a>
+				</div>
+
+			</EditForm>
+		</div>
+	</div>
+
+
+
+
+</div>
+
+
+
+@code {
+	private Component component = new Component();
+	private string? errorMessage;
+	private bool isSubmitting;
+
+	private async Task HandleSubmit()
+	{
+		isSubmitting = true;
+		errorMessage = null;
+		try
+		{
+			// Use the named HttpClient to send a POST request to create the new component
+			var httpClient = HttpClientFactory.CreateClient("HomeLabApi");
+
+			// Post the component data as JSON to the API endpoint
+			var response = await httpClient.PostAsJsonAsync("/api/components", component);
+
+			if (response.IsSuccessStatusCode)
+			{
+				// After successful creation, navigate back to the components list
+				NavigationManager.NavigateTo("/components");
+			}
+			else
+			{
+				errorMessage = $"Error: {response.ReasonPhrase}";
+			}
+		}
+		catch (Exception ex)
+		{
+			errorMessage = $"An error occurred: {ex.Message}";
+		}
+		finally
+		{
+			isSubmitting = false;
+		}
+	}
+
+}

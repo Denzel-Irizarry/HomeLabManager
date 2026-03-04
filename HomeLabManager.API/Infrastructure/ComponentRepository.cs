@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HomeLabManager.API.Infrastructure
 {
-    public class ComponentRepository : ComponentRespositoryInterface
+    public class ComponentRepository : ComponentRepositoryInterface
     {
         private readonly ApplicationDBContext _context;
 
