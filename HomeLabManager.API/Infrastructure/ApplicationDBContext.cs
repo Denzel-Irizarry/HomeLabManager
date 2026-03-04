@@ -31,6 +31,20 @@ namespace HomeLabManager.API.Infrastructure
                 return Set<Vendor>();
             }
         }
+        public DbSet<Component> Components
+        {
+            get
+            {
+                return Set<Component>();
+            }
+        }
+        public DbSet<DeviceComponent> DeviceComponents
+        {
+            get
+            {
+                return Set<DeviceComponent>();
+            }
+        }
 
         //documentation for ModelBuilder how the application should be modeled in the database
         //property is used to configure the model and its relationships 
@@ -88,6 +102,48 @@ namespace HomeLabManager.API.Infrastructure
 
             //max length for url to prevent issues with long urls in the database
             modelBuilder.Entity<Vendor>().Property(vendor => vendor.VendorBaseUrl).HasMaxLength(300);
+
+            //this section is for component entity configuration
+            //configure the max length for component name
+            modelBuilder.Entity<Component>().Property(component => component.Name).HasMaxLength(100);
+
+            //configure the max length for component type
+            modelBuilder.Entity<Component>().Property(component => component.ComponentType).HasMaxLength(100);
+
+            //configure the max length for manufacturer
+            modelBuilder.Entity<Component>().Property(component => component.Manufacturer).HasMaxLength(100);
+
+            //configure the max length for model number
+            modelBuilder.Entity<Component>().Property(component => component.ModelNumber).HasMaxLength(100);
+
+            //configure the max length for specifications
+            modelBuilder.Entity<Component>().Property(component => component.Specifications).HasMaxLength(500);
+
+            //configure the relationship between component and vendor
+            modelBuilder.Entity<Component>()
+                .HasOne<Vendor>()       //one to one relationship between component and vendor
+                .WithMany()             //vendor can have many components, but component only has one vendor
+                .HasForeignKey(component => component.VendorId) //this foreignKey is in component table and references the vendor table
+                .OnDelete(DeleteBehavior.SetNull); //allow deletion of a vendor if connected to a component, but set the foreign key to null to avoid orphaned records
+
+            //this section is for device component entity configuration
+
+            //configure the max length for serial number
+            modelBuilder.Entity<DeviceComponent>().Property(dc => dc.SerialNumber).HasMaxLength(100);
+
+            //configure the max length for notes
+            modelBuilder.Entity<DeviceComponent>().Property(dc => dc.Notes).HasMaxLength(500);
+
+            //configure the relationship between device-component and device
+            modelBuilder.Entity<DeviceComponent>()
+                .HasOne<Device>()       // DeviceComponent references one Device
+                .WithMany()             // Device can have many DeviceComponents
+                .HasForeignKey(dc => dc.DeviceId)
+                .OnDelete(DeleteBehavior.Cascade);  // If device deleted, delete all its component records
+
+            //create composite index for fast lookups of device components by device and component
+            modelBuilder.Entity<DeviceComponent>()
+                .HasIndex(dc => new { dc.DeviceId, dc.ComponentId });
 
         }
 
