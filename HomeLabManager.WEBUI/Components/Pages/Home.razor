@@ -59,24 +59,58 @@
 			@*card ui with equal height and shadow added*@
 			<div class="card h-100 shadow-sm">
 				<div class="card-body">
-					<h5 class="card-title">Register Device</h5>
-					<p class="card-text">Add new hardware to your inventory with detailed information.</p>
-					<a class="btn btn-primary" href="/devices">Register Device</a>
+					<h5 class="card-title">Component Library</h5>
+					<p class="card-text">Hardware components available for installation.</p>
+					@if (!string.IsNullOrWhiteSpace(componentsErrorMessage))
+					{
+						<p class="text-danger">@componentsErrorMessage</p>
+					}
+					else if (components is null)
+					{
+						<p>Loading components...</p>
+					}
+					else if (!components.Any())
+					{
+						//if there are no components show a message and a button to add components
+						<p class="text-muted">No components registered yet.</p>
+						<a class="btn btn-primary mt-2" href="/components">Add Components</a>
+					}
+					else
+					{
+						//if there are components show a summary of the total and by type, then a button to view all components
+						<dl class="stats-list mb-3">
+							<dt>Total Components:</dt>
+							<dd>@components.Count</dd>
+							@if (componentsByType.Any())
+							{
+								<dt>By Type:</dt>
+								<dd>
+									@foreach (var typeGroup in componentsByType.OrderByDescending(g => g.Value))
+									{
+										<span class="d-block">@typeGroup.Key: @typeGroup.Value</span>
+									}
+								</dd>
+							}
+						</dl>
+						<a class="btn btn-outline-primary btn-sm" href="/components">View All</a>
+					}
 				</div>
 			</div>
 		</div>
 
 		@*full width on small screens 2 per row on medium and 3 per row for large*@
-		<div class="col-12 col-md-6 col-xl-4">
-			@*card ui with equal height and shadow added*@
+		@* <div class="col-12 col-md-6 col-xl-4">
+			card ui with equal height and shadow added
 			<div class="card h-100 shadow-sm">
 				<div class="card-body">
 					<h5 class="card-title">System Notes</h5>
 					<p class="card-text">API and UI are connected. Next step is a registration form page.</p>
 				</div>
 			</div>
-		</div>
+		</div> *@
 	</div>
+
+
 	@*closing the row*@
 </div>
 
@@ -85,8 +119,13 @@
 	private DeviceStatsResponse deviceStats = new DeviceStatsResponse();
 	private string? statsErrorMessage;
 
+	private List<Component?> components;
+	private string? componentsErrorMessage;
+	private Dictionary<string, int> componentsByType = new Dictionary<string, int>();
+
 	protected override async Task OnInitializedAsync()
 	{
+		//load device statistics
 		try
 		{
 			var client = HttpClientFactory.CreateClient("HomeLabApi");
@@ -96,5 +135,27 @@
 		{
 			statsErrorMessage = $"Failed to load device statistics: {ex.Message}";
 		}
+
+		//load component data 
+		try
+		{
+			var client = HttpClientFactory.CreateClient("HomeLabApi");
+			components = await client.GetFromJsonAsync<List<Component?>>("api/components") ?? new List<Component?>();
+
+			if (components != null && components.Any())
+			{
+				//group components by type and count them
+				componentsByType = components
+					.Where(comps => comps != null && !string.IsNullOrWhiteSpace(comps.ComponentType))
+					.GroupBy(comps => comps.ComponentType)
+					.ToDictionary(g => g.Key, g => g.Count());
+			}
+		}
+		catch (Exception ex)
+		{
+			componentsErrorMessage = $"Failed to load components: {ex.Message}";
+		}
 	}
+
+
 }
