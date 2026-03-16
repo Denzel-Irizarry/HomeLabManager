@@ -1,202 +1,192 @@
-﻿@page "/register-image"
-@rendermode InteractiveServer
-@using Microsoft.AspNetCore.Components.Forms
+@page "/register-image"
 @inject IHttpClientFactory HttpClientFactory
-@*this gives a JS capabilties to blazor*@
-@inject IJSRuntime JS
-@inject NavigationManager NavigationManager
-
+@using System.Net.Http.Headers
+@using Microsoft.AspNetCore.Components.Forms
+@rendermode InteractiveServer
 
 <PageTitle>Register By Image</PageTitle>
 
 <div class="container py-4">
-	<h1>Register by Image</h1>
-	<p class="text-muted">Upload a barcode or QR image to register a device.</p>
+    <h1>Register by Image</h1>
+    <p class="text-muted">Upload a barcode or QR image to register a device.</p>
 
-	<div id="dropZone" class="border border-2 rounded p-4 text-center mb-3">
-		Drag & drop an image here or select browse file
-		<button type="button" class="btn btn-link p-0" @onclick="OpenFilePicker">browse</button> 
-	</div>
-	<InputFile id="hiddenFileInput" OnChange="HandleFileSelected" class="d-none" accept="image/*"/>
+    <EditForm Model="formModel" OnSubmit="HandleSubmit">
+        <div class="mb-3">
+            <InputFile class="form-control" OnChange="HandleFileSelected" accept="image/*" />
+        </div>
 
-	@if(!string.IsNullOrWhiteSpace(selectedFileName)){
-		// if a file is selected, show the file name and a button to clear the selection
-		<div class="d-flex align-items-center gap-2 mt-2">
-			<p class="mb-0"><button type="button" class="btn btn-sm btn-outline-danger" title="Remove file" @onclick="ClearSelectedFile">X</button> Selected: @selectedFileName</p>
+        @if (selectedFile != null)
+        {
+            <div class="d-flex align-items-center gap-2 mt-2 mb-3">
+                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="ClearSelection" title="Remove file">X</button>
+                <span>Selected: @selectedFile.Name</span>
+            </div>
+        }
 
-		</div>
-	}
+        <button type="submit" class="btn btn-primary" disabled="@(selectedFile == null || isUploading)">
+            @if (isUploading)
+            {
+                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                <span> Uploading...</span>
+            }
+            else
+            {
+                <span>Upload Image & Register</span>
+            }
+        </button>
+    </EditForm>
 
-	<button type="button" 
-			class="btn btn-primary mt-3" 
-			@onclick="UploadAndRegisterAsync"
-			disabled="@(selectedFile is null)">
-		Upload Image & Register
-	</button>
+    @if (!string.IsNullOrEmpty(statusMessage))
+    {
+        <div class="mt-3">
+            <p class="@(isError ? "text-danger" : "text-success") mb-0">@statusMessage</p>
+        </div>
+    }
 
-	@*
-	This will be if there is a status message to show after attempting to upload and register the device. 
-	It will display the message in green for success or red for error based on the value of uploadisError.
-	*@
-	@if (!string.IsNullOrWhiteSpace(uploadStatusMessage))
-	{
-		<div class="mt-3">
-			<p class="@(uploadisError ? "text-danger" : "text-success")">@uploadStatusMessage</p>
-		</div>
-	}
-
-	@if (!string.IsNullOrWhiteSpace(uploadStatusMessage))
-	{
-		<div class="mt-2">
-			<button type="button"
-					class="btn btn-sm btn-outline-secondary" 
-					@onclick='() => NavigationManager.NavigateTo("/devices")'>
-				View Devices
-			</button>
-		</div>
-	}
-
-
+    @if (showDevicesLink)
+    {
+        <div class="mt-2">
+            <a class="btn btn-sm btn-outline-secondary" href="/devices">View Devices</a>
+        </div>
+    }
 </div>
 
-
-
-
 @code {
-	/*
-	 * allows for storing the selected file & its name when a user uploads an image. This is for processing the file later
-	 * https://learn.microsoft.com/en-us/dotnet/api/microsoft.aspnetcore.components.forms.ibrowserfile?view=aspnetcore-9.0
-	 */
-	private IBrowserFile? selectedFile;
-	private string? selectedFileName;
+    private class UploadModel { }
+    private UploadModel formModel = new();
 
-	//these are for showing the status of the upload process, such as success or error messages, 
-	// to provide feedback to the user after they attempt to upload an image.
-	private string? uploadStatusMessage;
-	private bool uploadisError;
+    private IBrowserFile? selectedFile;
+    private bool isUploading;
+    private string statusMessage = "";
+    private bool isError;
+    private bool showDevicesLink;
 
-	protected override async Task OnAfterRenderAsync(bool firstRender)
-	{
-		if (firstRender)
-		{
-			// this calls the JS function to set up the drag and drop functionality on the drop zone element
-			await JS.InvokeVoidAsync("registerImageDropZone", "dropZone", "hiddenFileInput");
-		}
-	}
+    private void HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedFile = e.File;
+        statusMessage = "";
+        showDevicesLink = false;
+        isError = false;
+    }
 
-	private void HandleFileSelected(InputFileChangeEventArgs eFile)
-	{
-		selectedFile = eFile.File;
-		selectedFileName = selectedFile?.Name;
+    private void ClearSelection()
+    {
+        selectedFile = null;
+        statusMessage = "";
+    }
 
-	}
-	private async Task OpenFilePicker()
-	{
-		// this calls the JS function to trigger a click on the hidden file input, allowing the user to select a file
-		await JS.InvokeVoidAsync("triggerFileInputClick", "hiddenFileInput");
-	}
+    private async Task HandleSubmit()
+    {
+        if (selectedFile == null) return;
 
-	// this method clears the selected file and resets the file input, allowing the user to choose a different file if needed
-	private async Task ClearSelectedFile()
-	{
-		selectedFile = null;
-		selectedFileName = null;
-		await JS.InvokeVoidAsync("clearFileInput", "hiddenFileInput");
-	}
+        isUploading = true;
+        statusMessage = "";
 
-	private async Task UploadAndRegisterAsync()
-	{
-		if(selectedFile is null)
-		{
-			uploadisError = true;
-			uploadStatusMessage = "No file selected. Please select an image to upload.";
-			//breaks out of the method early if there is no file selected, preventing further processing 
-			return;
-		}
+        try
+        {
+                // starting upload
 
-		try
-		{
-			// creates an HttpClient instance, which is configured to talk to HomeLabApi. client will then send the selected file to the server for processing.
-			var client = HttpClientFactory.CreateClient("HomeLabApi");
+            using var client = HttpClientFactory.CreateClient("HomeLabApi");
+            using var content = new MultipartFormDataContent();
 
-			// creates a MultipartFormDataContent object, which is used to send the selected file as part of an HTTP request to the server.
-			using var content = new MultipartFormDataContent();
-
-			// limit to 10 MB
-			using var stream = selectedFile.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024); 
-
-			// creates a StreamContent from the selected file's stream, which can be sent in an HTTP request to the server for processing.
-			using var streamContent = new StreamContent(stream);
-
-			/*adds the stream content to the multipart form data content with the name "file" and the original file name, 
-			 * which will be used by the server to identify and process the uploaded file.
-			 * https://learn.microsoft.com/en-us/dotnet/api/system.net.http.headers.mediatypeheadervalue?view=net-9.0
-			 * https://learn.microsoft.com/en-us/dotnet/api/system.net.http.headers.httprequestheaders?view=net-9.0
-			 */
-			streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(selectedFile.ContentType);
-
-			/*
-			 * streamContent is the StreamContent instance containing the file data.
-			 * file is the form field name (e.g., "file").
-			 * selectedFile.Name is the filename to be sent in the header
-			 */
-			content.Add(streamContent, "file", selectedFile.Name);
-
-			// sends a POST request to the server at the specified endpoint ("/api/devices/register") with the multipart form data content containing 
-			// the uploaded file. The server will then process the file and attempt to register the device based on the information extracted from the image.
-			var response = await client.PostAsync("/api/devices/register", content);
-
-			if (response.IsSuccessStatusCode)
-			{
-				// If the server responds with a success status code, it indicates that the image was uploaded and the device was registered successfully. The UI will then display a success message to the user.
-				uploadisError = false;
-				uploadStatusMessage = "Image uploaded and device registered successfully!";
-
-				// Clear the selected file after successful upload and registration
-				await ClearSelectedFile(); 
-			}
-			else if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
-			{
-				// If the server responds with a 409 Conflict status code, it indicates that a device with the same identifier already exists in the system. The UI will then display an error message to the user, informing them of the conflict and suggesting that they check the image and try again.
-				uploadisError = true;
-				uploadStatusMessage = "A device with the same identifier already exists. Please check the image and try again.";
-			}
-			else if(response.StatusCode == System.Net.HttpStatusCode.BadRequest)
-			{
-				// If the server responds with a 400 Bad Request status code, it indicates that there was an issue with the uploaded image, such as it being unreadable or not containing valid information for device registration.
-				uploadisError = true;
-				uploadStatusMessage = "The uploaded image is invalid or unreadable. Please check the image and try again.";
-			}
-			else
-			{
-				// If the server responds with an error status code, it indicates that there was a problem with the upload or registration process.
-				// The UI will then display an error message to the user, including the status code returned by the server for troubleshooting purposes.
-				uploadisError = true;
-				var error = await response.Content.ReadAsStringAsync();
-				uploadStatusMessage = $"Failed to register: {(int)response.StatusCode} - {error}";
-			}
-
-		}
-		catch (OperationCanceledException)
-		{
-			uploadisError = true;
-			uploadStatusMessage = "The upload was canceled. Please try again.";
-		}
-		catch (IOException ex)
-		{
-			uploadisError = true;
-			uploadStatusMessage = $"An error occurred while reading the file: {ex.Message}";
-		}
-		catch (Exception ex)
-		{
-			uploadisError = true;
-			uploadStatusMessage = $"An error occurred while uploading the image: {ex.Message}";
-		}
+            // Allow larger files, e.g., 20MB max
+            long maxFileSize = 10485760 * 2;
 
 
-	}
+            using var sourceStream = selectedFile.OpenReadStream(maxFileSize);
 
 
+
+            using var memoryStream = new MemoryStream();
+
+            // Copy in chunks
+            var buffer = new byte[81920];
+            long total = 0;
+            int read;
+            while ((read = await sourceStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+            {
+                await memoryStream.WriteAsync(buffer, 0, read);
+                total += read;
+                if (total % 262144 == 0) // every ~256KB
+                {
+                    // progress
+                }
+            }
+
+            memoryStream.Position = 0;
+
+
+            var fileContent = new StreamContent(memoryStream);
+
+            // Protect against empty or invalid content types crashing the headers
+            var contentType = string.IsNullOrWhiteSpace(selectedFile.ContentType)
+                ? "application/octet-stream"
+                : selectedFile.ContentType;
+
+            if (MediaTypeHeaderValue.TryParse(contentType, out var parsedHeader))
+            {
+                fileContent.Headers.ContentType = parsedHeader;
+            }
+            else
+            {
+                fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+            }
+
+            content.Add(fileContent, "file", selectedFile.Name);
+
+            // sending POST
+
+            using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+            HttpResponseMessage response;
+            try
+            {
+                response = await client.PostAsync("api/devices/register", content, cts.Token);
+            }
+            catch (OperationCanceledException oce)
+            {
+                // cancelled/timeout
+                throw;
+            }
+
+            var responseText = await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode)
+            {
+                statusMessage = "Image uploaded and device registered successfully!";
+                isError = false;
+                showDevicesLink = true;
+                selectedFile = null;
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+            {
+                statusMessage = "A device with the same identifier already exists. Please check the image and try again.";
+                isError = true;
+                showDevicesLink = true;
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.BadRequest)
+            {
+                statusMessage = !string.IsNullOrWhiteSpace(responseText) 
+                    ? responseText 
+                    : "The uploaded image is invalid or unreadable. Please check the image and try again.";
+                isError = true;
+                showDevicesLink = true;
+            }
+            else
+            {
+                statusMessage = $"Failed to register: {(int)response.StatusCode} - {responseText}";
+                isError = true;
+                showDevicesLink = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"An error occurred while uploading the image: {ex.Message}";
+            isError = true;
+            showDevicesLink = true;
+        }
+        finally
+        {
+            isUploading = false;
+        }
+    }
 }
-
-<script src="/registerImage.js"></script>

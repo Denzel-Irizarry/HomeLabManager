@@ -1,59 +1,125 @@
-﻿window.triggerFileInputClick = (inputId) => {
-    // Get the input element by its ID and trigger a click event to open the file dialog
-    const input = document.getElementById(inputId);
-    if (input) input.click();
-};
+(() => {
+    const pageId = "register-image-page";
 
-window.registerImageDropZone = (dropZoneId, inputId) => {
-    // Get the drop zone and input elements by their IDs
-    const dropZone = document.getElementById(dropZoneId);
-    const input = document.getElementById(inputId);
+    function setStatus(statusElement, wrapperElement, devicesLinkElement, message, isError) {
+        statusElement.textContent = message;
+        statusElement.className = isError ? "text-danger mb-0" : "text-success mb-0";
+        wrapperElement.classList.remove("d-none");
+        devicesLinkElement.classList.remove("d-none");
+    }
 
-    // If either the drop zone or input element is not found, exit the function
-    if (!dropZone || !input) return;
+    function clearSelection(inputElement, selectionElement, nameElement, submitElement) {
+        inputElement.value = "";
+        nameElement.textContent = "";
+        selectionElement.classList.add("d-none");
+        selectionElement.classList.remove("d-flex");
+        submitElement.disabled = true;
+    }
 
-    // Add event listeners for drag and drop events on the drop zone
-    const preventDefaults = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-    };
+    function initRegisterImagePage() {
+        const page = document.getElementById(pageId);
+        if (!page || page.dataset.initialized === "true") {
+            return;
+        }
 
-    // Prevent default behavior for drag and drop events to allow dropping files
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-        dropZone.addEventListener(eventName, preventDefaults, false);
-    });
+        page.dataset.initialized = "true";
 
+        const apiBaseUrl = page.dataset.apiBaseUrl;
+        const input = document.getElementById("register-image-input");
+        const selection = document.getElementById("register-image-selection");
+        const name = document.getElementById("register-image-name");
+        const submit = document.getElementById("register-image-submit");
+        const clear = document.getElementById("register-image-clear");
+        const statusWrapper = document.getElementById("register-image-status-wrapper");
+        const status = document.getElementById("register-image-status");
+        const devicesLink = document.getElementById("register-image-devices-link");
 
-    // Add a drop event listener to handle file drops on the drop zone
-    dropZone.addEventListener("dragover", () => dropZone.classList.add("bg-light"), false);
-    dropZone.addEventListener("dragleave", () => dropZone.classList.remove("bg-light"), false);
+        if (!apiBaseUrl || !input || !selection || !name || !submit || !clear || !statusWrapper || !status || !devicesLink) {
+            return;
+        }
 
-    // Handle the drop event to get the dropped files and set them to the input element
-    dropZone.addEventListener("drop", (e) => {
-        dropZone.classList.remove("bg-light");
+        input.addEventListener("change", () => {
+            const file = input.files && input.files.length > 0 ? input.files[0] : null;
 
-        // Get the files from the drop event
-        const files = e.dataTransfer?.files;
+            statusWrapper.classList.add("d-none");
+            devicesLink.classList.add("d-none");
 
-        // If no files were dropped, exit the function
-        if (!files || files.length === 0) return;
+            if (!file) {
+                clearSelection(input, selection, name, submit);
+                return;
+            }
 
-        // Set the dropped files to the input element
-        input.files = files;
+            name.textContent = file.name;
+            selection.classList.remove("d-none");
+            selection.classList.add("d-flex");
+            submit.disabled = false;
+        });
 
-        // Trigger change event to notify Blazor of the file change)
-        input.dispatchEvent(new Event("change", { bubbles: true })); 
-    }, false);
+        clear.addEventListener("click", () => {
+            clearSelection(input, selection, name, submit);
+        });
 
-};
+        submit.addEventListener("click", async () => {
+            const file = input.files && input.files.length > 0 ? input.files[0] : null;
+            if (!file) {
+                setStatus(status, statusWrapper, devicesLink, "No file selected. Please select an image to upload.", true);
+                return;
+            }
 
-// Function to clear the file input value, allowing users to select the same file again if needed
-window.clearFileInput = (inputId) => {
-    // Get the input element by its ID
-    const input = document.getElementById(inputId);
+            submit.disabled = true;
 
-    // If the input element is not found, exit the function
-    if (!input) return;
+            try {
+                const formData = new FormData();
+                formData.append("file", file, file.name);
 
-    input.value = ""; // Clear the file input value
-}
+                const response = await fetch(`${apiBaseUrl}/api/devices/register`, {
+                    method: "POST",
+                    body: formData
+                });
+
+                const responseText = await response.text();
+
+                if (response.ok) {
+                    setStatus(status, statusWrapper, devicesLink, "Image uploaded and device registered successfully!", false);
+                    clearSelection(input, selection, name, submit);
+                    return;
+                }
+
+                if (response.status === 409) {
+                    setStatus(status, statusWrapper, devicesLink, "A device with the same identifier already exists. Please check the image and try again.", true);
+                    return;
+                }
+
+                if (response.status === 400) {
+                    setStatus(
+                        status,
+                        statusWrapper,
+                        devicesLink,
+                        responseText && responseText.trim().length > 0
+                            ? responseText
+                            : "The uploaded image is invalid or unreadable. Please check the image and try again.",
+                        true
+                    );
+                    return;
+                }
+
+                setStatus(status, statusWrapper, devicesLink, `Failed to register: ${response.status} - ${responseText}`, true);
+            } catch (error) {
+                const message = error instanceof Error ? error.message : "Unexpected upload error.";
+                setStatus(status, statusWrapper, devicesLink, `An error occurred while uploading the image: ${message}`, true);
+            } finally {
+                const hasFile = input.files && input.files.length > 0;
+                submit.disabled = !hasFile;
+            }
+        });
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", initRegisterImagePage);
+    } else {
+        initRegisterImagePage();
+    }
+
+    document.addEventListener("enhancedload", initRegisterImagePage);
+    window.addEventListener("pageshow", initRegisterImagePage);
+})();

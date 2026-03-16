@@ -6,14 +6,20 @@ namespace HomeLabManager.WEBUI
     {
         public static void Main(string[] args)
         {
+            // Diagnostic logging removed
             var builder = WebApplication.CreateBuilder(args);
 
             // Add services to the container.
             builder.Services.AddRazorComponents()
                 .AddInteractiveServerComponents();
 
-            //connects the backend api client to front end ui
-            builder.Services.AddHttpClient("HomeLabApi", client => { client.BaseAddress = new Uri("https://localhost:7053"); });
+            var apiBaseUrl = builder.Configuration["Api:BaseUrl"] ?? "http://localhost:5015";
+
+            // Connect the frontend UI to the backend API through a named client.
+            builder.Services.AddHttpClient("HomeLabApi", client =>
+            {
+                client.BaseAddress = new Uri(apiBaseUrl);
+            });
 
             var app = builder.Build();
 
@@ -26,7 +32,11 @@ namespace HomeLabManager.WEBUI
             }
 
             app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
-            app.UseHttpsRedirection();
+
+            if (!string.IsNullOrWhiteSpace(app.Configuration["ASPNETCORE_HTTPS_PORT"]))
+            {
+                app.UseHttpsRedirection();
+            }
 
             app.UseAntiforgery();
 
@@ -34,6 +44,7 @@ namespace HomeLabManager.WEBUI
             app.MapRazorComponents<App>()
                 .AddInteractiveServerRenderMode();
 
+            // Diagnostic logging removed
             app.Run();
         }
     }

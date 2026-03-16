@@ -11,6 +11,7 @@ namespace HomeLabManager.API
     {
         public static void Main(string[] args)
         {
+            // Diagnostic logging removed
             var builder = WebApplication.CreateBuilder(args);
 
             //all builder services are a registry of when a service is requested, how to create an instance of that service.
@@ -55,22 +56,23 @@ namespace HomeLabManager.API
 
             var app = builder.Build();
 
-            // Configure the HTTP request pipeline.
-            if (app.Environment.IsDevelopment())
-            {
-                //comment out for seeing the swagger ui
-                //app.MapOpenApi();
-                app.UseSwagger();
-                app.UseSwaggerUI();
-            }
+            // Keep Swagger available for local debugging even when the app is started
+            // directly from the build output and launchSettings are skipped.
+            app.UseSwagger();
+            app.UseSwaggerUI();
 
-            app.UseHttpsRedirection();
+            if (!string.IsNullOrWhiteSpace(app.Configuration["ASPNETCORE_HTTPS_PORT"]))
+            {
+                app.UseHttpsRedirection();
+            }
 
             app.UseAuthorization();
 
+            app.MapGet("/", () => Results.Redirect("/swagger"));
 
             app.MapControllers();
 
+            // Diagnostic logging removed
             app.Run();
         }
     }

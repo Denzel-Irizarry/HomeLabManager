@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using HomeLabManager.API.ExceptionsAPI;
+using HomeLabManager.API.Infrastructure;
 using HomeLabManager.Core.Entities;
 using HomeLabManager.API.Models;
 
@@ -32,7 +33,8 @@ namespace HomeLabManager.API.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register(IFormFile file)
         {
-            try{
+            try
+            {
 
 
             if(file == null || file.Length == 0)
@@ -40,6 +42,7 @@ namespace HomeLabManager.API.Controllers
                 return BadRequest("No file uploaded.");
             }
 
+            // file received
 
             //opens a request to do the actual reading of the file
             //Passing the IFormFile to a stream because stream is .Net compatible with any framework
@@ -48,7 +51,7 @@ namespace HomeLabManager.API.Controllers
 
             //return the device created from the deviceService class
             var device = await deviceService.RegisterDeviceAsync(stream);
-            
+
             return Ok(device);
             }
             catch(SerialNumberMissingException ex)
@@ -60,6 +63,11 @@ namespace HomeLabManager.API.Controllers
             {
                 logger.LogWarning(ex, "Duplicate serial number during device registration.");
                 return Conflict(ex.Message);
+            }
+            catch(BarcodeNotFoundException ex)
+            {
+                logger.LogWarning(ex, "No barcode or QR code was detected during device registration.");
+                return BadRequest(ex.Message);
             }
             catch(FileScanningUploadException ex)
             {
@@ -112,26 +120,40 @@ namespace HomeLabManager.API.Controllers
             }
         }
 
-        //needs exception handling for if there is an error during the retrieval process
         //get request to get all devices in the system, including related product and vendor information
         [HttpGet]
         public async Task<ActionResult<List<Device>>> GetDevices()
         {
-            var devices = await deviceService.GetAllDevicesAsync();
-            return Ok(devices);
+            try
+            {
+                var devices = await deviceService.GetAllDevicesAsync();
+                return Ok(devices);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "An error occurred while retrieving devices.");
+                return StatusCode(500, "An error occurred while retrieving devices.");
+            }
         }
 
-        //needs exception handling for if device with id is not found
         //get request to get a specific device by id, including related product and vendor information
         [HttpGet("{id:guid}")]
         public async Task<ActionResult<Device>> GetDeviceById(Guid id)
         {
-            var device = await deviceService.GetDeviceByIdAsync(id);
-            if(device == null)
+            try
             {
-                return NotFound();
+                var device = await deviceService.GetDeviceByIdAsync(id);
+                if(device == null)
+                {
+                    return NotFound($"Device with id '{id}' was not found.");
+                }
+                return Ok(device);
             }
-            return Ok(device);
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "An error occurred while retrieving device with id {DeviceId}.", id);
+                return StatusCode(500, "An error occurred while retrieving the device.");
+            }
         }
 
         [HttpGet("stats")]
@@ -149,20 +171,27 @@ namespace HomeLabManager.API.Controllers
             }
         }
 
-        //needs exception handling for if device with id is not found, or if there is an error during the delete process
         //delete request to delete a specific device by id
         [HttpDelete("{id:guid}")]
         public async Task<IActionResult> DeleteDevice(Guid id)
         {
-            var deleted = await deviceService.DeleteDeviceByIdAsync(id);
-            if(!deleted)
+            try
             {
-                //404 means the device with the specified id was not found in the database, so it cannot be deleted
-                return NotFound();
-            }
+                var deleted = await deviceService.DeleteDeviceByIdAsync(id);
+                if(!deleted)
+                {
+                    //404 means the device with the specified id was not found in the database, so it cannot be deleted
+                    return NotFound($"Device with id '{id}' was not found.");
+                }
 
-            //204 means the request was successful but there is no content to return because the device was deleted
-            return NoContent();
+                //204 means the request was successful but there is no content to return because the device was deleted
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "An error occurred while deleting device with id {DeviceId}.", id);
+                return StatusCode(500, "An error occurred while deleting the device.");
+            }
         }
 
         [HttpPut("{id:guid}")]

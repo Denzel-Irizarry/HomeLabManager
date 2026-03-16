@@ -45,6 +45,7 @@ namespace HomeLabManager.API.Services
             //await means delay acting on the task until we get the results
             //get the serial
             var serial = await scanService.ExtractSerialAsync(request);
+            // serial extracted
 
             //stop the process early if no serial number is found, don't start with vendor lookup or database operations
             if (string.IsNullOrWhiteSpace(serial))
@@ -54,6 +55,7 @@ namespace HomeLabManager.API.Services
 
             //check for duplicate serial number before checking with vendor lookup or database operations and stops device from being created
             var existingDevice = await deviceRepository.SerialExistsAsynch(serial);
+            // duplicate check result
             if (existingDevice)
             {
                 throw new DuplicateSerialNumberException("A device with the same serial number already exists.");
@@ -62,6 +64,7 @@ namespace HomeLabManager.API.Services
             //await means delay acting on the task until we get the results
             //lookup product from vendor
             var product = await vendorLookup.GetProductBySerialAsync(serial);
+            // vendor lookup completed
 
             //create the actual device
             var device = new Device
@@ -75,9 +78,11 @@ namespace HomeLabManager.API.Services
 
             //adds the created device so it can persist
             await deviceRepository.AddAsync(device);
+            // device added to DbContext
 
             //this is will send the save request
             await dbContext.SaveChangesAsync();
+            // SaveChangesAsync completed
 
 
             return MapToDataTransfer(device);
