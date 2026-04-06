@@ -36,6 +36,13 @@ main {
         text-overflow: ellipsis;
     }
 
+    .top-row ::deep .github-icon {
+        width: 18px;
+        height: 18px;
+        margin-right: 0.4rem;
+        vertical-align: text-bottom;
+    }
+
 @media (max-width: 640.98px) {
     .top-row {
         justify-content: space-between;

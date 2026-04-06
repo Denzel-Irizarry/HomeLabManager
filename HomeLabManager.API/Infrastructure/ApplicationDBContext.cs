@@ -7,6 +7,7 @@ namespace HomeLabManager.API.Infrastructure
     public class ApplicationDBContext : DbContext
     {
         public ApplicationDBContext(DbContextOptions<ApplicationDBContext> options) : base(options){ }
+        //dbset properties for each entity in the application, these properties represent the tables in the database and allow us to perform CRUD operations on them using Entity Framework Core
 
         public DbSet<Device> Devices
         {
