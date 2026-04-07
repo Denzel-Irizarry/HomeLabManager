@@ -5,6 +5,7 @@ using HomeLabManager.API.Interfaces;
 using HomeLabManager.API.Services;
 using HomeLabManager.API.Services.Scraping;
 using HomeLabManager.API.Services.Scraping.Interfaces;
+using HomeLabManager.API.Services.Providers;
 
 namespace HomeLabManager.API
 {
@@ -44,6 +45,8 @@ namespace HomeLabManager.API
             //Scraper service and interface
             builder.Services.AddScoped<IScraperService, ScraperService>();
       
+            //Hardware lookup providers - this is where we can add multiple providers and the scraper service will use them in order until it finds a match
+            builder.Services.AddScoped<IHardwareLookupProvider, FakeHardwareLookupProvider>();
             
             //ComponentRespositoryInterface, ComponentRepository: Maps interface to implementation
             builder.Services.AddScoped<ComponentRepositoryInterface, ComponentRepository>();
