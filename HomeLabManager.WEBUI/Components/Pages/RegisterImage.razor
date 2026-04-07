@@ -142,10 +142,10 @@
             {
                 response = await client.PostAsync("api/devices/register", content, cts.Token);
             }
-            catch (OperationCanceledException oce)
+            catch (OperationCanceledException ex)
             {
                 // cancelled/timeout
-                throw;
+                throw new Exception("The upload timed out. Please try again with a smaller image or check your connection.", ex);
             }
 
             var responseText = await response.Content.ReadAsStringAsync();
