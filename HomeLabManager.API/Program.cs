@@ -3,7 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using HomeLabManager.API.Infrastructure;
 using HomeLabManager.API.Interfaces;
 using HomeLabManager.API.Services;
-
+using HomeLabManager.API.Services.Scraping;
+using HomeLabManager.API.Services.Scraping.Interfaces;
 
 namespace HomeLabManager.API
 {
@@ -40,6 +41,9 @@ namespace HomeLabManager.API
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
 
+            //Scraper service and interface
+            builder.Services.AddScoped<IScraperService, ScraperService>();
+      
             
             //ComponentRespositoryInterface, ComponentRepository: Maps interface to implementation
             builder.Services.AddScoped<ComponentRepositoryInterface, ComponentRepository>();
