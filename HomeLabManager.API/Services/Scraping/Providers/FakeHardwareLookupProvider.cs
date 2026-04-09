@@ -3,7 +3,7 @@ using HomeLabManager.Core.Scraping.DTOs;
 using HomeLabManager.Core.Scraping.Enums;
 using HomeLabManager.Core.Scraping.Models;
 
-namespace HomeLabManager.API.Services.Providers
+namespace HomeLabManager.API.Services.Scraping.Providers
 {
     public class FakeHardwareLookupProvider : IHardwareLookupProvider
     {
