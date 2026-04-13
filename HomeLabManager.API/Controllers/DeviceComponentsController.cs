@@ -27,7 +27,7 @@ namespace HomeLabManager.API.Controllers
                 var components = await deviceComponentService.GetComponentsByDeviceIdAsync(deviceId);
                 return Ok(components);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while retrieving device components.");
             }
@@ -51,7 +51,7 @@ namespace HomeLabManager.API.Controllers
             {
                 return BadRequest(ex.Message); // Return bad request for validation errors
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while adding the component to the device.");
             }

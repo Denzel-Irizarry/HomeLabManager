@@ -110,7 +110,7 @@ namespace HomeLabManager.API.Services
         public async Task<bool> DeleteDeviceByIdAsync(Guid id)
         {
             var deleted = await deviceRepository.DeleteByIdAsync(id);
-            if (deleted)
+            if (!deleted)
             {
                 //this will let the ui know the delete was unsuccessful and to update the list of devices
                 return false;

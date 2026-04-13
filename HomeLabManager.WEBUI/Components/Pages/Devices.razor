@@ -5,6 +5,7 @@
 @* https://learn.microsoft.com/en-us/dotnet/api/system.net.http.ihttpclientfactory.createclient?view=net-10.0-pp#remarks*@
 @inject IHttpClientFactory HttpClientFactory
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
 
 
 <PageTitle>Devices</PageTitle>
@@ -97,6 +98,7 @@ else
 						<span class=" sort-icon">@GetSortIcon("Created")</span>
                     </button>
                 </th>
+                <th>Actions</th>
             </tr>
         </thead>
         <tbody>
@@ -111,21 +113,31 @@ else
                     <td>@d.VendorName</td>
                     <td>@d.CreatedAtUtc</td>
                     <td>
-                        <button 
-                            type="button"
-                            class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center"
-                            @onclick='()=>NavigationManager.NavigateTo($"/devices/{d.Id}/edit")'
-							title="Edit Device">
-                            <svg xmlns="http://www.w3.org/2000/svg" 
-                            viewBox="0 0 24 24" 
-                            fill="currentColor" 
-                            width="20"
-                            height="20"
-                            aria-hidden="true">
-                            <path d="M21.731 2.269a2.625 2.625 0 0 0-3.712 0l-1.157 1.157 3.712 3.712 1.157-1.157a2.625 2.625 0 0 0 0-3.712ZM19.513 8.199l-3.712-3.712-8.4 8.4a5.25 5.25 0 0 0-1.32 2.214l-.8 2.685a.75.75 0 0 0 .933.933l2.685-.8a5.25 5.25 0 0 0 2.214-1.32l8.4-8.4Z" />
-                            <path d="M5.25 5.25a3 3 0 0 0-3 3v10.5a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3V13.5a.75.75 0 0 0-1.5 0v5.25a1.5 1.5 0 0 1-1.5 1.5H5.25a1.5 1.5 0 0 1-1.5-1.5V8.25a1.5 1.5 0 0 1 1.5-1.5h5.25a.75.75 0 0 0 0-1.5H5.25Z" />
-                            </svg>
-                        </button>
+                        <div class="d-flex gap-2">
+                            <button 
+                                type="button"
+                                class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center"
+                                @onclick='()=>NavigationManager.NavigateTo($"/devices/{d.Id}/edit")'
+							    title="Edit Device">
+                                <svg xmlns="http://www.w3.org/2000/svg" 
+                                viewBox="0 0 24 24" 
+                                fill="currentColor" 
+                                width="20"
+                                height="20"
+                                aria-hidden="true">
+                                <path d="M21.731 2.269a2.625 2.625 0 0 0-3.712 0l-1.157 1.157 3.712 3.712 1.157-1.157a2.625 2.625 0 0 0 0-3.712ZM19.513 8.199l-3.712-3.712-8.4 8.4a5.25 5.25 0 0 0-1.32 2.214l-.8 2.685a.75.75 0 0 0 .933.933l2.685-.8a5.25 5.25 0 0 0 2.214-1.32l8.4-8.4Z" />
+                                <path d="M5.25 5.25a3 3 0 0 0-3 3v10.5a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3V13.5a.75.75 0 0 0-1.5 0v5.25a1.5 1.5 0 0 1-1.5 1.5H5.25a1.5 1.5 0 0 1-1.5-1.5V8.25a1.5 1.5 0 0 1 1.5-1.5h5.25a.75.75 0 0 0 0-1.5H5.25Z" />
+                                </svg>
+                            </button>
+
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-outline-danger"
+                                @onclick='() => DeleteDeviceAsync(d)'
+                                title="Delete Device">
+                                Delete
+                            </button>
+                        </div>
                     </td>
                 </tr>
             }
@@ -231,6 +243,45 @@ else
             return "↕";
 
         return sortAscending ? "▲" : "▼";
+    }
+
+    private async Task DeleteDeviceAsync(DeviceResponseDataTransferObject device)
+    {
+        var label = !string.IsNullOrWhiteSpace(device.NickName)
+            ? device.NickName
+            : !string.IsNullOrWhiteSpace(device.SerialNumber)
+                ? device.SerialNumber
+                : device.Id.ToString();
+
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Delete device '{label}'?");
+        if (!confirmed)
+            return;
+
+        try
+        {
+            var client = HttpClientFactory.CreateClient("HomeLabApi");
+            var response = await client.DeleteAsync($"api/devices/{device.Id}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                devices.Remove(device);
+                errorMessage = null;
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                errorMessage = "The device no longer exists.";
+                devices.Remove(device);
+            }
+            else
+            {
+                var responseText = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Failed to delete device: {(int)response.StatusCode} - {responseText}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to delete device: {ex.Message}";
+        }
     }
 
 
