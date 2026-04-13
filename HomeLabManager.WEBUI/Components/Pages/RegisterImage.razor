@@ -2,6 +2,8 @@
 @inject IHttpClientFactory HttpClientFactory
 @using System.Net.Http.Headers
 @using Microsoft.AspNetCore.Components.Forms
+@using System.Net.Http.Json
+@using HomeLabManager.WEBUI.Models
 @rendermode InteractiveServer
 
 <PageTitle>Register By Image</PageTitle>
@@ -12,7 +14,7 @@
 
     <EditForm Model="formModel" OnSubmit="HandleSubmit">
         <div class="mb-3">
-            <InputFile class="form-control" OnChange="HandleFileSelected" accept="image/*" />
+            <InputFile @key="fileInputKey" class="form-control" OnChange="HandleFileSelected" accept="image/*" />
         </div>
 
         @if (selectedFile != null)
@@ -43,6 +45,84 @@
         </div>
     }
 
+    @if (previewResult != null)
+    {
+        <div class="card mt-4">
+            <div class="card-body">
+                <h3 class="card-title h5">Preview Result</h3>
+
+                <div class="mb-3">
+                    <p class="mb-1"><strong>Extracted Code:</strong> @previewResult.ExtractedCode</p>
+                    <p class="mb-1"><strong>Code Type:</strong> @previewResult.ExtractedCodeType</p>
+                    <p class="mb-1"><strong>Lookup Attempted:</strong> @(previewResult.CanAttemptLookup ? "Yes" : "No")</p>
+                    <p class="mb-0"><strong>Message:</strong> @previewResult.Message</p>
+                </div>
+
+                <hr />
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Serial Number</label>
+                        <InputText class="form-control" @bind-Value="reviewModel.SerialNumber" />
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Vendor Name</label>
+                        <InputText class="form-control" @bind-Value="reviewModel.VendorName" />
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Product Name</label>
+                        <InputText class="form-control" @bind-Value="reviewModel.ProductName" />
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Model Number</label>
+                        <InputText class="form-control" @bind-Value="reviewModel.ModelNumber" />
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Nick Name</label>
+                        <InputText class="form-control" @bind-Value="reviewModel.NickName" />
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Location</label>
+                        <InputText class="form-control" @bind-Value="reviewModel.Location" />
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">UPC</label>
+                        <InputText class="form-control" @bind-Value="reviewModel.UPC" />
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Category</label>
+                        <InputText class="form-control" @bind-Value="reviewModel.Category" />
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label">Description</label>
+                        <InputTextArea class="form-control" @bind-Value="reviewModel.Description" />
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(previewResult.SourceUrl))
+                    {
+                        <div class="col-12">
+                            <a class="btn btn-sm btn-outline-secondary" href="@previewResult.SourceUrl" target="_blank">
+                                View Source
+                            </a>
+                        </div>
+                    }
+
+                    <div class="col-12 d-flex gap-2">
+                        <button type="button" class="btn btn-success" @onclick="SaveDeviceAsync">Add Device</button>
+                        <button type="button" class="btn btn-outline-secondary" @onclick="ClearSelection">Clear</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
     @if (showDevicesLink)
     {
         <div class="mt-2">
@@ -52,29 +132,66 @@
 </div>
 
 @code {
+    
     private class UploadModel { }
     private UploadModel formModel = new();
+    // This model is used to display the preview result and any extracted information from the image
+    private class ReviewModel
+    {
+        public string SerialNumber { get; set; } = string.Empty;
+        public string NickName { get; set; } = string.Empty;
+        public string Location { get; set; } = string.Empty;
+        public string VendorName { get; set; } = string.Empty;
+        public string ProductName { get; set; } = string.Empty;
+        public string ModelNumber { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string UPC { get; set; } = string.Empty;
+        public string Category { get; set; } = string.Empty;
+    }
 
     private IBrowserFile? selectedFile;
     private bool isUploading;
     private string statusMessage = "";
     private bool isError;
     private bool showDevicesLink;
+    private int fileInputKey;
+    
+    //private string? extractedCode;
+    private ImageScrapePreviewResponse? previewResult;
+    private ReviewModel reviewModel = new();
 
+    // Handle file selection and reset state
     private void HandleFileSelected(InputFileChangeEventArgs e)
     {
         selectedFile = e.File;
         statusMessage = "";
         showDevicesLink = false;
         isError = false;
+        previewResult = null;
+        reviewModel = new ReviewModel();
     }
 
+    // Clear the selected file and reset state
     private void ClearSelection()
     {
-        selectedFile = null;
-        statusMessage = "";
+        ResetFormState(clearStatusMessage: true);
     }
 
+    private void ResetFormState(bool clearStatusMessage)
+    {
+        selectedFile = null;
+        if (clearStatusMessage)
+        {
+            statusMessage = "";
+        }
+        showDevicesLink = false;
+        isError = false;
+        previewResult = null;
+        reviewModel = new ReviewModel();
+        fileInputKey++;
+    }
+
+    //this method is called when the user submits the form to upload the image and generate a preview. It handles the file upload, calls the API, and processes the response to display the preview information.
     private async Task HandleSubmit()
     {
         if (selectedFile == null) return;
@@ -82,10 +199,10 @@
         isUploading = true;
         statusMessage = "";
 
+
         try
         {
-                // starting upload
-
+            // starting upload
             using var client = HttpClientFactory.CreateClient("HomeLabApi");
             using var content = new MultipartFormDataContent();
 
@@ -94,29 +211,7 @@
 
 
             using var sourceStream = selectedFile.OpenReadStream(maxFileSize);
-
-
-
-            using var memoryStream = new MemoryStream();
-
-            // Copy in chunks
-            var buffer = new byte[81920];
-            long total = 0;
-            int read;
-            while ((read = await sourceStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
-            {
-                await memoryStream.WriteAsync(buffer, 0, read);
-                total += read;
-                if (total % 262144 == 0) // every ~256KB
-                {
-                    // progress
-                }
-            }
-
-            memoryStream.Position = 0;
-
-
-            var fileContent = new StreamContent(memoryStream);
+            var fileContent = new StreamContent(sourceStream);
 
             // Protect against empty or invalid content types crashing the headers
             var contentType = string.IsNullOrWhiteSpace(selectedFile.ContentType)
@@ -140,7 +235,7 @@
             HttpResponseMessage response;
             try
             {
-                response = await client.PostAsync("api/devices/register", content, cts.Token);
+                response = await client.PostAsync("api/scraper/from-image", content, cts.Token);
             }
             catch (OperationCanceledException ex)
             {
@@ -148,45 +243,124 @@
                 throw new Exception("The upload timed out. Please try again with a smaller image or check your connection.", ex);
             }
 
-            var responseText = await response.Content.ReadAsStringAsync();
-
             if (response.IsSuccessStatusCode)
             {
-                statusMessage = "Image uploaded and device registered successfully!";
-                isError = false;
-                showDevicesLink = true;
-                selectedFile = null;
+                previewResult = await response.Content.ReadFromJsonAsync<ImageScrapePreviewResponse>(cancellationToken: cts.Token);
+                if (previewResult != null)
+                {
+                    reviewModel = new ReviewModel
+                    {
+                        SerialNumber = previewResult.ExtractedCodeType == "SerialNumber"
+                            ? previewResult.ExtractedCode
+                            : string.Empty,
+                        VendorName = previewResult.Manufacturer,
+                        ProductName = previewResult.ProductName,
+                        ModelNumber = previewResult.ModelNumber,
+                        Description = previewResult.Description,
+                        UPC = previewResult.UPC,
+                        Category = previewResult.Category
+                    };
+                    statusMessage = "Image scanned successfully.";
+                    isError = false;
+                    showDevicesLink = false;
+                }
+                else
+                {
+                    statusMessage = "The preview response was empty.";
+                    isError = true;
+                }
             }
             else if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
             {
-                statusMessage = "A device with the same identifier already exists. Please check the image and try again.";
+                var responseText = await response.Content.ReadAsStringAsync();
+                statusMessage = "A preview conflict occurred while processing the image.";
                 isError = true;
-                showDevicesLink = true;
+                showDevicesLink = false;
             }
             else if (response.StatusCode == System.Net.HttpStatusCode.BadRequest)
             {
+                var responseText = await response.Content.ReadAsStringAsync();
                 statusMessage = !string.IsNullOrWhiteSpace(responseText) 
                     ? responseText 
-                    : "The uploaded image is invalid or unreadable. Please check the image and try again.";
+                    : "The image could not be scanned or a preview could not be created.";
                 isError = true;
-                showDevicesLink = true;
+                showDevicesLink = false;
             }
             else
             {
-                statusMessage = $"Failed to register: {(int)response.StatusCode} - {responseText}";
+                var responseText = await response.Content.ReadAsStringAsync();
+                statusMessage = $"Failed to generate preview: {(int)response.StatusCode} - {responseText}";
                 isError = true;
-                showDevicesLink = true;
+                showDevicesLink = false;
             }
         }
         catch (Exception ex)
         {
-            statusMessage = $"An error occurred while uploading the image: {ex.Message}";
+            statusMessage = $"An error occurred while generating the image preview: {ex.Message}";
             isError = true;
-            showDevicesLink = true;
+            showDevicesLink = false;
         }
         finally
         {
             isUploading = false;
+        }
+    }
+
+    // This method would be called when the user confirms the preview information and wants to save the device to their inventory.
+    private async Task SaveDeviceAsync()
+    {
+        try
+        {
+            using var client = HttpClientFactory.CreateClient("HomeLabApi");
+
+            var request = new ManualDeviceRegisterRequest
+            {
+                SerialNumber = string.IsNullOrWhiteSpace(reviewModel.SerialNumber) ? null : reviewModel.SerialNumber,
+                NickName = string.IsNullOrWhiteSpace(reviewModel.NickName) ? null : reviewModel.NickName,
+                Location = string.IsNullOrWhiteSpace(reviewModel.Location) ? null : reviewModel.Location,
+                VendorName = string.IsNullOrWhiteSpace(reviewModel.VendorName) ? null : reviewModel.VendorName,
+                ProductName = string.IsNullOrWhiteSpace(reviewModel.ProductName) ? null : reviewModel.ProductName,
+                ModelNumber = string.IsNullOrWhiteSpace(reviewModel.ModelNumber) ? null : reviewModel.ModelNumber
+            };
+
+            var response = await client.PostAsJsonAsync("api/devices/manual", request);
+            var responseText = await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode)
+            {
+                ResetFormState(clearStatusMessage: false);
+                statusMessage = "Device added successfully.";
+                isError = false;
+                showDevicesLink = true;
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+            {
+                statusMessage = !string.IsNullOrWhiteSpace(responseText)
+                    ? responseText
+                    : "A device with the same serial number already exists.";
+                isError = true;
+                showDevicesLink = false;
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.BadRequest)
+            {
+                statusMessage = !string.IsNullOrWhiteSpace(responseText)
+                    ? responseText
+                    : "The reviewed device information could not be saved.";
+                isError = true;
+                showDevicesLink = false;
+            }
+            else
+            {
+                statusMessage = $"Failed to save device: {(int)response.StatusCode} - {responseText}";
+                isError = true;
+                showDevicesLink = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"An error occurred while saving the device: {ex.Message}";
+            isError = true;
+            showDevicesLink = false;
         }
     }
 }

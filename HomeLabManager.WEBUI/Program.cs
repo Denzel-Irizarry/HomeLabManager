@@ -13,6 +13,11 @@ namespace HomeLabManager.WEBUI
             builder.Services.AddRazorComponents()
                 .AddInteractiveServerComponents();
 
+            builder.Services.AddSignalR(options =>
+            {
+                options.MaximumReceiveMessageSize = 20 * 1024 * 1024;
+            });
+
             var apiBaseUrl = builder.Configuration["Api:BaseUrl"] ?? "http://localhost:5015";
 
             // Connect the frontend UI to the backend API through a named client.
