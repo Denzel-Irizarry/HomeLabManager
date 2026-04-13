@@ -21,22 +21,10 @@
       "applicationUrl": "https://localhost:7053;http://localhost:5015",
       "nativeDebugging": false,
       "launchBrowser": false
-    },
-    "IIS Express": {
-      "commandName": "IISExpress",
-      "launchBrowser": true,
-      "applicationUrl": "http://localhost:55399/",
-      "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
-      }
     }
   },
   "iisSettings": {
     "windowsAuthentication": false,
-    "anonymousAuthentication": true,
-    "iisExpress": {
-      "applicationUrl": "http://localhost:55399/",
-      "sslPort": 44332
-    }
+    "anonymousAuthentication": true
   }
 }
