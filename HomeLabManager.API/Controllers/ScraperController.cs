@@ -24,7 +24,8 @@ namespace HomeLabManager.API.Controllers
         [HttpPost("search")]
         public async Task<ActionResult> Search([FromBody] ScraperSearchRequest request)
         {
-            var result = await _scraperService.LookupDeviceAsync(request.Query, "Upc");
+            var codeType = AnalyzeSearchQuery(request.Query);
+            var result = await _scraperService.LookupDeviceAsync(request.Query, codeType);
             return Ok(result);
         }
         
@@ -72,6 +73,7 @@ namespace HomeLabManager.API.Controllers
                 ExtractedCode = extractedCode,
                 LookupSucceeded = scrapeResult.Success,
                 Message = scrapeResult.Message,
+                DetectedVendor = scrapeResult.DetectedVendor,
                 ProductName = scrapeResult.DeviceInfo?.ProductName ?? string.Empty,
                 Manufacturer = scrapeResult.DeviceInfo?.Manufacturer ?? string.Empty,
                 ModelNumber = scrapeResult.DeviceInfo?.ModelNumber ?? string.Empty,
@@ -126,6 +128,21 @@ namespace HomeLabManager.API.Controllers
             }
 
             return ("Unknown", false, "Scanned code type is not supported for lookup.");
+        }
+
+        private static string AnalyzeSearchQuery(string query)
+        {
+            if (string.IsNullOrWhiteSpace(query))
+            {
+                return "Unknown";
+            }
+
+            if (query.All(char.IsDigit))
+            {
+                return "Upc";
+            }
+
+            return "SerialNumber";
         }
 
 

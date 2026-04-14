@@ -7,12 +7,12 @@ namespace HomeLabManager.API.Services.Scraping.Providers
 {
     public class FakeSerialLookupProvider : IHardwareLookupProvider
     {
-        public bool CanHandle(string codeType)
+        public bool CanHandle(string codeType, string? vendor = null)
         {
             return string.Equals(codeType, "SerialNumber", StringComparison.OrdinalIgnoreCase);
         }
 
-        public Task<ScrapeResult> SearchAsync(string query)
+        public Task<ScrapeResult> SearchAsync(string query, string? vendor = null)
         {
             if(string.Equals(query, "MXQ2160G6X", StringComparison.OrdinalIgnoreCase))
             {

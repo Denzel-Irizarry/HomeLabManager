@@ -15,12 +15,17 @@ namespace HomeLabManager.API.Services.Scraping
         }
         public async Task<ScrapeResult> LookupDeviceAsync(string query, string codeType)
         {
-            foreach (var provider in _providers.Where(provider => provider.CanHandle(codeType)))
+            var detectedVendor = codeType.Equals("SerialNumber", StringComparison.OrdinalIgnoreCase)
+                ? SerialVendorDetector.DetectVendor(query)
+                : string.Empty;
+
+            foreach (var provider in _providers.Where(provider => provider.CanHandle(codeType, detectedVendor)))
             {
-                var result = await provider.SearchAsync(query);
+                var result = await provider.SearchAsync(query, detectedVendor);
 
                 if (result.Success)
                 {
+                    result.DetectedVendor = detectedVendor;
                     return result;
                 }
             }
@@ -28,7 +33,8 @@ namespace HomeLabManager.API.Services.Scraping
             return new ScrapeResult
             {
                 Success = false,
-                Message = "No providers returned a match."
+                Message = "No providers returned a match.",
+                DetectedVendor = detectedVendor
             };
         }
 

@@ -19,12 +19,12 @@ namespace HomeLabManager.API.Services.Scraping.Providers
             _httpClient = httpClient;
         }
 
-        public bool CanHandle(string codeType)
+        public bool CanHandle(string codeType, string? vendor = null)
         {
             return string.Equals(codeType, "UPC", StringComparison.OrdinalIgnoreCase);
         }
 
-        public async Task<ScrapeResult> SearchAsync(string query)
+        public async Task<ScrapeResult> SearchAsync(string query, string? vendor = null)
         {
             var apiKey = _configuration["UpcDatabase:ApiKey"];
             if (string.IsNullOrWhiteSpace(apiKey))
