@@ -7,12 +7,12 @@ namespace HomeLabManager.API.Services.Scraping.Providers
 {
     public class FakeHardwareLookupProvider : IHardwareLookupProvider
     {
-        public bool CanHandle(string codeType)
+        public bool CanHandle(string codeType, string? vendor = null)
         {
             return string.Equals(codeType, "Upc", StringComparison.OrdinalIgnoreCase);
         }
 
-        public Task<ScrapeResult> SearchAsync(string query)
+        public Task<ScrapeResult> SearchAsync(string query, string? vendor = null)
         {
              if (query == "test-device")
             {

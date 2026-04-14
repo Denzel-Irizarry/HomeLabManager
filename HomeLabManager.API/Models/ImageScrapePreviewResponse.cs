@@ -10,6 +10,7 @@
         // These fields will indicate whether the lookup was successful and any messages from the providers, this will help the frontend determine how to display the results to the user, for example if the lookup failed it can show the extracted code and message to the user so they can try again with a clearer image or manually enter the code
         public bool LookupSucceeded { get; set; }
         public string Message { get; set; } = string.Empty;
+        public string DetectedVendor { get; set; } = string.Empty;
 
         // Device information fields that may be returned from the lookup, these will be populated if the lookup was successful and the provider was able to extract this information, otherwise they will be empty strings
         public string ProductName { get; set; } = string.Empty;
