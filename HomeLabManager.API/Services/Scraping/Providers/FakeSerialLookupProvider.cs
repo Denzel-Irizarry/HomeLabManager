@@ -9,7 +9,8 @@ namespace HomeLabManager.API.Services.Scraping.Providers
     {
         public bool CanHandle(string codeType, string? vendor = null)
         {
-            return string.Equals(codeType, "SerialNumber", StringComparison.OrdinalIgnoreCase);
+            return string.Equals(codeType, "SerialNumber", StringComparison.OrdinalIgnoreCase)
+                && string.IsNullOrWhiteSpace(vendor);
         }
 
         public Task<ScrapeResult> SearchAsync(string query, string? vendor = null)

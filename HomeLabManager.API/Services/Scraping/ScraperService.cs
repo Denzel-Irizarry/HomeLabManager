@@ -19,6 +19,8 @@ namespace HomeLabManager.API.Services.Scraping
                 ? SerialVendorDetector.DetectVendor(query)
                 : string.Empty;
 
+            ScrapeResult? lastFailure = null;
+
             foreach (var provider in _providers.Where(provider => provider.CanHandle(codeType, detectedVendor)))
             {
                 var result = await provider.SearchAsync(query, detectedVendor);
@@ -26,15 +28,38 @@ namespace HomeLabManager.API.Services.Scraping
                 if (result.Success)
                 {
                     result.DetectedVendor = detectedVendor;
+                    result.LookupStatus = string.IsNullOrWhiteSpace(result.LookupStatus)
+                        ? "success"
+                        : result.LookupStatus;
                     return result;
                 }
+
+                lastFailure = result;
+            }
+
+            if (lastFailure != null)
+            {
+                return new ScrapeResult
+                {
+                    Success = false,
+                    Message = string.IsNullOrWhiteSpace(lastFailure.Message)
+                        ? "No providers returned a match."
+                        : lastFailure.Message,
+                    DetectedVendor = detectedVendor,
+                    LookupStatus = string.IsNullOrWhiteSpace(lastFailure.LookupStatus)
+                        ? "not_found"
+                        : lastFailure.LookupStatus,
+                    SuggestedLookupUrl = lastFailure.SuggestedLookupUrl,
+                    DeviceInfo = lastFailure.DeviceInfo
+                };
             }
 
             return new ScrapeResult
             {
                 Success = false,
                 Message = "No providers returned a match.",
-                DetectedVendor = detectedVendor
+                DetectedVendor = detectedVendor,
+                LookupStatus = "not_supported"
             };
         }
 
