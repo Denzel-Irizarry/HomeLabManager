@@ -49,7 +49,7 @@ namespace HomeLabManager.API
             builder.Services.AddHttpClient<UpcLookupProvider>();
             builder.Services.AddScoped<IHardwareLookupProvider, FakeHardwareLookupProvider>();
             builder.Services.AddScoped<IHardwareLookupProvider, UpcLookupProvider>();
-
+            builder.Services.AddScoped<IHardwareLookupProvider, FakeSerialLookupProvider>();
             
             //ComponentRespositoryInterface, ComponentRepository: Maps interface to implementation
             builder.Services.AddScoped<ComponentRepositoryInterface, ComponentRepository>();

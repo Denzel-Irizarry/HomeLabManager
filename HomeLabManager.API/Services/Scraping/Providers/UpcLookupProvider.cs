@@ -17,8 +17,13 @@ namespace HomeLabManager.API.Services.Scraping.Providers
         {
             _configuration = configuration;
             _httpClient = httpClient;
-        }   
-        
+        }
+
+        public bool CanHandle(string codeType)
+        {
+            return string.Equals(codeType, "UPC", StringComparison.OrdinalIgnoreCase);
+        }
+
         public async Task<ScrapeResult> SearchAsync(string query)
         {
             var apiKey = _configuration["UpcDatabase:ApiKey"];
