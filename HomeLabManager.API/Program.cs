@@ -52,6 +52,7 @@ namespace HomeLabManager.API
             builder.Services.AddScoped<IHardwareLookupProvider, FakeHardwareLookupProvider>();
             builder.Services.AddScoped<IHardwareLookupProvider, UpcLookupProvider>();
             builder.Services.AddScoped<IHardwareLookupProvider, DellSerialLookupProvider>();
+            builder.Services.AddScoped<IHardwareLookupProvider, FakeCiscoSerialLookupProvider>();
             builder.Services.AddScoped<IHardwareLookupProvider, CiscoSerialLookupProvider>();
             builder.Services.AddScoped<IHardwareLookupProvider, FakeSerialLookupProvider>();
             

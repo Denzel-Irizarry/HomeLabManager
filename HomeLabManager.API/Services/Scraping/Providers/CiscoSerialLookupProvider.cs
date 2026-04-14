@@ -75,109 +75,142 @@ namespace HomeLabManager.API.Services.Scraping.Providers
                 request.Headers.TryAddWithoutValidation(apiKeyHeader, apiKey);
             }
 
-            var response = await _httpClient.SendAsync(request);
-            if (!response.IsSuccessStatusCode)
+            try
             {
-                var statusCode = (int)response.StatusCode;
-                return new ScrapeResult
+                var response = await _httpClient.SendAsync(request);
+                if (!response.IsSuccessStatusCode)
                 {
-                    Success = false,
-                    Message = $"Cisco lookup request failed with status code {statusCode}.",
-                    LookupStatus = response.StatusCode switch
+                    var statusCode = (int)response.StatusCode;
+                    return new ScrapeResult
                     {
-                        HttpStatusCode.Unauthorized => "auth_required",
-                        HttpStatusCode.Forbidden => "auth_required",
-                        HttpStatusCode.TooManyRequests => "rate_limited",
-                        HttpStatusCode.NotFound => "not_found",
-                        _ => "failed_http"
-                    },
-                    SuggestedLookupUrl = requestUrl
-                };
-            }
+                        Success = false,
+                        Message = $"Cisco lookup request failed with status code {statusCode}.",
+                        LookupStatus = response.StatusCode switch
+                        {
+                            HttpStatusCode.Unauthorized => "auth_required",
+                            HttpStatusCode.Forbidden => "auth_required",
+                            HttpStatusCode.TooManyRequests => "rate_limited",
+                            HttpStatusCode.NotFound => "not_found",
+                            _ => "failed_http"
+                        },
+                        SuggestedLookupUrl = requestUrl
+                    };
+                }
 
-            var responseBody = await response.Content.ReadAsStringAsync();
-            if (string.IsNullOrWhiteSpace(responseBody))
-            {
-                return new ScrapeResult
+                var responseBody = await response.Content.ReadAsStringAsync();
+                if (string.IsNullOrWhiteSpace(responseBody))
                 {
-                    Success = false,
-                    Message = "Cisco lookup returned an empty response.",
-                    LookupStatus = "empty",
-                    SuggestedLookupUrl = requestUrl
-                };
-            }
+                    return new ScrapeResult
+                    {
+                        Success = false,
+                        Message = "Cisco lookup returned an empty response.",
+                        LookupStatus = "empty",
+                        SuggestedLookupUrl = requestUrl
+                    };
+                }
 
-            var html = WebUtility.HtmlDecode(responseBody);
-            var title = ExtractMetaContent(html, "property", "og:title");
-            var description = ExtractMetaContent(html, "name", "description");
-            var canonicalUrl = ExtractLinkHref(html, "canonical");
+                var html = WebUtility.HtmlDecode(responseBody);
+                var title = ExtractMetaContent(html, "property", "og:title");
+                var description = ExtractMetaContent(html, "name", "description");
+                var canonicalUrl = ExtractLinkHref(html, "canonical");
 
-            if (string.IsNullOrWhiteSpace(title))
-            {
-                title = ExtractTitle(html);
-            }
-
-            var structuredData = ExtractJsonLdDocuments(html);
-            foreach (var document in structuredData)
-            {
-                var root = document.RootElement;
-                title = FirstNonEmpty(title, ReadString(root, "productName", "ProductName", "name", "Name", "title", "Title"));
-                description = FirstNonEmpty(description, ReadString(root, "description", "Description"));
-                canonicalUrl = FirstNonEmpty(canonicalUrl, ReadString(root, "url", "Url", "sourceUrl", "SourceUrl"));
-
-                var manufacturer = FirstNonEmpty(
-                    ReadString(root, "manufacturer", "Manufacturer", "brand", "Brand", "vendor", "Vendor"),
-                    "Cisco");
-                var modelNumber = ReadString(root, "modelNumber", "ModelNumber", "model", "Model", "sku", "Sku");
-                var imageUrl = ReadString(root, "imageUrl", "ImageUrl", "image", "Image", "thumbnailUrl", "ThumbnailUrl");
-
-                if (string.IsNullOrWhiteSpace(title)
-                    && string.IsNullOrWhiteSpace(modelNumber)
-                    && string.IsNullOrWhiteSpace(description))
+                if (string.IsNullOrWhiteSpace(title))
                 {
-                    continue;
+                    title = ExtractTitle(html);
+                }
+
+                var structuredData = ExtractJsonLdDocuments(html);
+                foreach (var document in structuredData)
+                {
+                    var root = document.RootElement;
+                    title = FirstNonEmpty(title, ReadString(root, "productName", "ProductName", "name", "Name", "title", "Title"));
+                    description = FirstNonEmpty(description, ReadString(root, "description", "Description"));
+                    canonicalUrl = FirstNonEmpty(canonicalUrl, ReadString(root, "url", "Url", "sourceUrl", "SourceUrl"));
+
+                    var manufacturer = FirstNonEmpty(
+                        ReadString(root, "manufacturer", "Manufacturer", "brand", "Brand", "vendor", "Vendor"),
+                        "Cisco");
+                    var modelNumber = ReadString(root, "modelNumber", "ModelNumber", "model", "Model", "sku", "Sku");
+                    var imageUrl = ReadString(root, "imageUrl", "ImageUrl", "image", "Image", "thumbnailUrl", "ThumbnailUrl");
+
+                    if (string.IsNullOrWhiteSpace(title)
+                        && string.IsNullOrWhiteSpace(modelNumber)
+                        && string.IsNullOrWhiteSpace(description))
+                    {
+                        continue;
+                    }
+
+                    return new ScrapeResult
+                    {
+                        Success = true,
+                        Message = "Cisco serial lookup parsed successfully.",
+                        LookupStatus = "success",
+                        SuggestedLookupUrl = string.IsNullOrWhiteSpace(canonicalUrl) ? requestUrl : canonicalUrl,
+                        DeviceInfo = new ScrapedDeviceInfo
+                        {
+                            ProductName = title,
+                            Manufacturer = manufacturer,
+                            ModelNumber = modelNumber,
+                            SerialNumber = query,
+                            Description = description,
+                            ImageUrl = imageUrl,
+                            SourceUrl = string.IsNullOrWhiteSpace(canonicalUrl) ? response.RequestMessage?.RequestUri?.ToString() ?? requestUrl : canonicalUrl,
+                            SourceType = ScrapeSourceType.VendorWebsite
+                        }
+                    };
+                }
+
+                if (responseBody.Contains("not found", StringComparison.OrdinalIgnoreCase)
+                    || responseBody.Contains("no records", StringComparison.OrdinalIgnoreCase)
+                    || responseBody.Contains("invalid serial", StringComparison.OrdinalIgnoreCase))
+                {
+                    return new ScrapeResult
+                    {
+                        Success = false,
+                        Message = "Cisco lookup did not find a matching serial number.",
+                        LookupStatus = "not_found",
+                        SuggestedLookupUrl = requestUrl
+                    };
                 }
 
                 return new ScrapeResult
                 {
-                    Success = true,
-                    Message = "Cisco serial lookup parsed successfully.",
-                    LookupStatus = "success",
-                    SuggestedLookupUrl = string.IsNullOrWhiteSpace(canonicalUrl) ? requestUrl : canonicalUrl,
-                    DeviceInfo = new ScrapedDeviceInfo
-                    {
-                        ProductName = title,
-                        Manufacturer = manufacturer,
-                        ModelNumber = modelNumber,
-                        SerialNumber = query,
-                        Description = description,
-                        ImageUrl = imageUrl,
-                        SourceUrl = string.IsNullOrWhiteSpace(canonicalUrl) ? response.RequestMessage?.RequestUri?.ToString() ?? requestUrl : canonicalUrl,
-                        SourceType = ScrapeSourceType.VendorWebsite
-                    }
-                };
-            }
-
-            if (responseBody.Contains("not found", StringComparison.OrdinalIgnoreCase)
-                || responseBody.Contains("no records", StringComparison.OrdinalIgnoreCase)
-                || responseBody.Contains("invalid serial", StringComparison.OrdinalIgnoreCase))
-            {
-                return new ScrapeResult
-                {
                     Success = false,
-                    Message = "Cisco lookup did not find a matching serial number.",
+                    Message = "Cisco lookup response did not contain recognized product information.",
                     LookupStatus = "not_found",
                     SuggestedLookupUrl = requestUrl
                 };
             }
-
-            return new ScrapeResult
+            catch (HttpRequestException ex)
             {
-                Success = false,
-                Message = "Cisco lookup response did not contain recognized product information.",
-                LookupStatus = "not_found",
-                SuggestedLookupUrl = requestUrl
-            };
+                return new ScrapeResult
+                {
+                    Success = false,
+                    Message = $"Cisco lookup endpoint unreachable: {ex.Message}",
+                    LookupStatus = "connection_error",
+                    SuggestedLookupUrl = requestUrl
+                };
+            }
+            catch (OperationCanceledException)
+            {
+                return new ScrapeResult
+                {
+                    Success = false,
+                    Message = "Cisco lookup request timed out.",
+                    LookupStatus = "timeout",
+                    SuggestedLookupUrl = requestUrl
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ScrapeResult
+                {
+                    Success = false,
+                    Message = $"Cisco lookup failed with error: {ex.Message}",
+                    LookupStatus = "error",
+                    SuggestedLookupUrl = requestUrl
+                };
+            }
         }
 
         private static string BuildLookupUrl(string lookupUrl, string serial)
