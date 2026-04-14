@@ -1,31 +1,31 @@
-﻿using HomeLabManager.API.Services.Scraping.Interfaces;
+using HomeLabManager.API.Services.Scraping.Interfaces;
 using HomeLabManager.Core.Scraping.DTOs;
 using HomeLabManager.Core.Scraping.Enums;
 using HomeLabManager.Core.Scraping.Models;
 
 namespace HomeLabManager.API.Services.Scraping.Providers
 {
-    public class FakeHardwareLookupProvider : IHardwareLookupProvider
+    public class FakeSerialLookupProvider : IHardwareLookupProvider
     {
         public bool CanHandle(string codeType)
         {
-            return string.Equals(codeType, "Upc", StringComparison.OrdinalIgnoreCase);
+            return string.Equals(codeType, "SerialNumber", StringComparison.OrdinalIgnoreCase);
         }
 
         public Task<ScrapeResult> SearchAsync(string query)
         {
-             if (query == "test-device")
+            if(string.Equals(query, "MXQ2160G6X", StringComparison.OrdinalIgnoreCase))
             {
                 return Task.FromResult(new ScrapeResult
                 {
                     Success = true,
-                    Message = "Fake provider found a match.",
+                    Message = "Fake serial provider found a match.",
                     DeviceInfo = new ScrapedDeviceInfo
                     {
                         ProductName = "Test Router",
                         Manufacturer = "FakeVendor",
                         ModelNumber = "FAKE-1000",
-                        SerialNumber = "SN-TEST-001",
+                        SerialNumber = "MXQ2160G6X",
                         UPC = "123456789012",
                         Category = "Networking",
                         Description = "Fake test device returned by the fake provider.",
@@ -35,12 +35,11 @@ namespace HomeLabManager.API.Services.Scraping.Providers
                     }
                 });
             }
-
             return Task.FromResult(new ScrapeResult
             {
                 Success = false,
-                Message = "Fake provider found no match."
+                Message = "Fake serial provider found no match."
             });
-        } 
+        }
     }
 }

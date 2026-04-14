@@ -24,7 +24,7 @@ namespace HomeLabManager.API.Controllers
         [HttpPost("search")]
         public async Task<ActionResult> Search([FromBody] ScraperSearchRequest request)
         {
-            var result = await _scraperService.LookupDeviceAsync(request.Query);
+            var result = await _scraperService.LookupDeviceAsync(request.Query, "Upc");
             return Ok(result);
         }
         
@@ -63,7 +63,7 @@ namespace HomeLabManager.API.Controllers
                 });
             }
 
-            var scrapeResult = await _scraperService.LookupDeviceAsync(extractedCode);
+            var scrapeResult = await _scraperService.LookupDeviceAsync(extractedCode, analysis.CodeType);
 
             // Map the ScrapeResult to the ImageScrapePreviewResponse
             var response = new ImageScrapePreviewResponse
@@ -122,7 +122,7 @@ namespace HomeLabManager.API.Controllers
 
             if (extractedCode.All(char.IsLetterOrDigit))
             {
-                return ("SerialNumber", false, "A serial number was detected, but no serial lookup provider is available yet.");
+                return ("SerialNumber", true, string.Empty);
             }
 
             return ("Unknown", false, "Scanned code type is not supported for lookup.");

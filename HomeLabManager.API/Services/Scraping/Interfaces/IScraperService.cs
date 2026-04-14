@@ -4,6 +4,6 @@ namespace HomeLabManager.API.Services.Scraping.Interfaces
 {
     public interface IScraperService
     {
-        Task<ScrapeResult> LookupDeviceAsync(string query);
+        Task<ScrapeResult> LookupDeviceAsync(string query, string codeType);
     }
 }

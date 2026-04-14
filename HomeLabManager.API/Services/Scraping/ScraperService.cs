@@ -1,6 +1,7 @@
 using HomeLabManager.API.Services.Scraping.Interfaces;
 using HomeLabManager.Core.Scraping.Models;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace HomeLabManager.API.Services.Scraping
 {
@@ -12,9 +13,9 @@ namespace HomeLabManager.API.Services.Scraping
         {
             _providers = providers;
         }
-        public async Task<ScrapeResult> LookupDeviceAsync(string query)
+        public async Task<ScrapeResult> LookupDeviceAsync(string query, string codeType)
         {
-            foreach (var provider in _providers)
+            foreach (var provider in _providers.Where(provider => provider.CanHandle(codeType)))
             {
                 var result = await provider.SearchAsync(query);
 
@@ -30,6 +31,6 @@ namespace HomeLabManager.API.Services.Scraping
                 Message = "No providers returned a match."
             };
         }
-       
+
     }
 }
