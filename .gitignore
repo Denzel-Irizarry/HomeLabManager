@@ -371,5 +371,8 @@ FodyWeavers.xsd
 *.mdf
 *.ldf
 
+# Project-local runtime database
+HomeLabManager.API/homelab.db
+
 # Local database snapshots
 *.bacpac
