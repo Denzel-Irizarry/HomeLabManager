@@ -12,6 +12,33 @@
     <h1>Register by Image</h1>
     <p class="text-muted">Upload a barcode or QR image to register a device.</p>
 
+    <div class="card mb-4">
+        <div class="card-body">
+            <h2 class="h5">Lookup by Serial / Service Tag</h2>
+            <p class="text-muted mb-3">Use this to test vendor lookup directly (for example, Dell service tags).</p>
+
+            <div class="row g-2 align-items-end">
+                <div class="col-md-8">
+                    <label class="form-label">Serial or Service Tag</label>
+                    <InputText class="form-control" @bind-Value="serialLookupQuery" placeholder="e.g. 5D34GT2" />
+                </div>
+                <div class="col-md-4">
+                    <button type="button" class="btn btn-outline-primary w-100" disabled="@isSerialLookupInProgress" @onclick="HandleSerialLookupAsync">
+                        @if (isSerialLookupInProgress)
+                        {
+                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                            <span> Looking up...</span>
+                        }
+                        else
+                        {
+                            <span>Lookup Tag</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <EditForm Model="formModel" OnSubmit="HandleSubmit">
         <div class="mb-3">
             <InputFile @key="fileInputKey" class="form-control" OnChange="HandleFileSelected" accept="image/*" />
@@ -54,6 +81,7 @@
                 <div class="mb-3">
                     <p class="mb-1"><strong>Extracted Code:</strong> @previewResult.ExtractedCode</p>
                     <p class="mb-1"><strong>Code Type:</strong> @previewResult.ExtractedCodeType</p>
+                    <p class="mb-1"><strong>Detected Vendor:</strong> @(string.IsNullOrWhiteSpace(previewResult.DetectedVendor) ? "Unknown" : previewResult.DetectedVendor)</p>
                     <p class="mb-1"><strong>Lookup Attempted:</strong> @(previewResult.CanAttemptLookup ? "Yes" : "No")</p>
                     <p class="mb-0"><strong>Message:</strong> @previewResult.Message</p>
                 </div>
@@ -155,6 +183,8 @@
     private bool isError;
     private bool showDevicesLink;
     private int fileInputKey;
+    private bool isSerialLookupInProgress;
+    private string serialLookupQuery = string.Empty;
     
     //private string? extractedCode;
     private ImageScrapePreviewResponse? previewResult;
@@ -169,6 +199,80 @@
         isError = false;
         previewResult = null;
         reviewModel = new ReviewModel();
+    }
+
+    private async Task HandleSerialLookupAsync()
+    {
+        if (string.IsNullOrWhiteSpace(serialLookupQuery))
+        {
+            statusMessage = "Enter a serial number or service tag before lookup.";
+            isError = true;
+            return;
+        }
+
+        isSerialLookupInProgress = true;
+        statusMessage = "";
+        isError = false;
+        showDevicesLink = false;
+
+        try
+        {
+            using var client = HttpClientFactory.CreateClient("HomeLabApi");
+
+            var response = await client.PostAsJsonAsync("api/scraper/search", new ScraperSearchRequest
+            {
+                Query = serialLookupQuery.Trim()
+            });
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var failedResponse = await response.Content.ReadAsStringAsync();
+                statusMessage = $"Lookup failed: {(int)response.StatusCode} - {failedResponse}";
+                isError = true;
+                return;
+            }
+
+            var lookupResult = await response.Content.ReadFromJsonAsync<ScrapeResult>();
+            if (lookupResult == null)
+            {
+                statusMessage = "Lookup returned an empty response.";
+                isError = true;
+                return;
+            }
+
+            previewResult = new ImageScrapePreviewResponse
+            {
+                ExtractedCode = serialLookupQuery.Trim(),
+                ExtractedCodeType = "SerialNumber",
+                CanAttemptLookup = true,
+                LookupSucceeded = lookupResult.Success,
+                Message = lookupResult.Message,
+                DetectedVendor = lookupResult.DetectedVendor,
+                ProductName = lookupResult.DeviceInfo?.ProductName ?? string.Empty,
+                Manufacturer = lookupResult.DeviceInfo?.Manufacturer ?? string.Empty,
+                ModelNumber = lookupResult.DeviceInfo?.ModelNumber ?? string.Empty,
+                UPC = lookupResult.DeviceInfo?.UPC ?? string.Empty,
+                Category = lookupResult.DeviceInfo?.Category ?? string.Empty,
+                Description = lookupResult.DeviceInfo?.Description ?? string.Empty,
+                ImageUrl = lookupResult.DeviceInfo?.ImageUrl ?? string.Empty,
+                SourceUrl = lookupResult.DeviceInfo?.SourceUrl ?? string.Empty
+            };
+
+            PopulateReviewModelFromPreview();
+            statusMessage = lookupResult.Success
+                ? "Lookup completed successfully. Review values before saving."
+                : "Lookup completed but did not return device information.";
+            isError = !lookupResult.Success;
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"An error occurred while looking up the serial number: {ex.Message}";
+            isError = true;
+        }
+        finally
+        {
+            isSerialLookupInProgress = false;
+        }
     }
 
     // Clear the selected file and reset state
@@ -248,18 +352,7 @@
                 previewResult = await response.Content.ReadFromJsonAsync<ImageScrapePreviewResponse>(cancellationToken: cts.Token);
                 if (previewResult != null)
                 {
-                    reviewModel = new ReviewModel
-                    {
-                        SerialNumber = previewResult.ExtractedCodeType == "SerialNumber"
-                            ? previewResult.ExtractedCode
-                            : string.Empty,
-                        VendorName = previewResult.Manufacturer,
-                        ProductName = previewResult.ProductName,
-                        ModelNumber = previewResult.ModelNumber,
-                        Description = previewResult.Description,
-                        UPC = previewResult.UPC,
-                        Category = previewResult.Category
-                    };
+                    PopulateReviewModelFromPreview();
                     statusMessage = "Image scanned successfully.";
                     isError = false;
                     showDevicesLink = false;
@@ -362,5 +455,29 @@
             isError = true;
             showDevicesLink = false;
         }
+    }
+
+    private void PopulateReviewModelFromPreview()
+    {
+        if (previewResult == null)
+        {
+            reviewModel = new ReviewModel();
+            return;
+        }
+
+        reviewModel = new ReviewModel
+        {
+            SerialNumber = previewResult.ExtractedCodeType == "SerialNumber"
+                ? previewResult.ExtractedCode
+                : string.Empty,
+            VendorName = !string.IsNullOrWhiteSpace(previewResult.Manufacturer)
+                ? previewResult.Manufacturer
+                : previewResult.DetectedVendor,
+            ProductName = previewResult.ProductName,
+            ModelNumber = previewResult.ModelNumber,
+            Description = previewResult.Description,
+            UPC = previewResult.UPC,
+            Category = previewResult.Category
+        };
     }
 }
