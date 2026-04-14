@@ -73,10 +73,13 @@ namespace HomeLabManager.API.Services.Scraping.Providers
             var response = await _httpClient.SendAsync(request);
             if (!response.IsSuccessStatusCode)
             {
+                var statusCode = (int)response.StatusCode;
                 return new ScrapeResult
                 {
                     Success = false,
-                    Message = $"Dell lookup request failed with status code {(int)response.StatusCode}."
+                    Message = $"Dell lookup request failed with status code {statusCode}.",
+                    LookupStatus = response.StatusCode == HttpStatusCode.Forbidden ? "blocked" : "failed_http",
+                    SuggestedLookupUrl = requestUrl
                 };
             }
 
@@ -86,7 +89,8 @@ namespace HomeLabManager.API.Services.Scraping.Providers
                 return new ScrapeResult
                 {
                     Success = false,
-                    Message = "Dell lookup returned an empty response."
+                    Message = "Dell lookup returned an empty response.",
+                    LookupStatus = "empty"
                 };
             }
 
@@ -126,6 +130,8 @@ namespace HomeLabManager.API.Services.Scraping.Providers
                 {
                     Success = true,
                     Message = "Dell support page parsed successfully.",
+                    LookupStatus = "success",
+                    SuggestedLookupUrl = string.IsNullOrWhiteSpace(canonicalUrl) ? requestUrl : canonicalUrl,
                     DeviceInfo = new ScrapedDeviceInfo
                     {
                         ProductName = title,
@@ -146,14 +152,18 @@ namespace HomeLabManager.API.Services.Scraping.Providers
                 return new ScrapeResult
                 {
                     Success = false,
-                    Message = "Dell support page blocked the request."
+                    Message = "Dell support page blocked the request.",
+                    LookupStatus = "blocked",
+                    SuggestedLookupUrl = requestUrl
                 };
             }
 
             return new ScrapeResult
             {
                 Success = false,
-                Message = "Dell support page did not contain recognized product information."
+                Message = "Dell support page did not contain recognized product information.",
+                LookupStatus = "not_found",
+                SuggestedLookupUrl = requestUrl
             };
         }
 

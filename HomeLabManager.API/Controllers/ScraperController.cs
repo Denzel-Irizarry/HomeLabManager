@@ -60,7 +60,8 @@ namespace HomeLabManager.API.Controllers
                     ExtractedCodeType = analysis.CodeType,
                     CanAttemptLookup = false,
                     LookupSucceeded = false,
-                    Message = analysis.Message 
+                    Message = analysis.Message,
+                    LookupStatus = "not_attempted"
                 });
             }
 
@@ -74,6 +75,8 @@ namespace HomeLabManager.API.Controllers
                 LookupSucceeded = scrapeResult.Success,
                 Message = scrapeResult.Message,
                 DetectedVendor = scrapeResult.DetectedVendor,
+                LookupStatus = scrapeResult.LookupStatus,
+                SupportLookupUrl = scrapeResult.SuggestedLookupUrl,
                 ProductName = scrapeResult.DeviceInfo?.ProductName ?? string.Empty,
                 Manufacturer = scrapeResult.DeviceInfo?.Manufacturer ?? string.Empty,
                 ModelNumber = scrapeResult.DeviceInfo?.ModelNumber ?? string.Empty,
@@ -81,7 +84,7 @@ namespace HomeLabManager.API.Controllers
                 Category = scrapeResult.DeviceInfo?.Category ?? string.Empty,
                 Description = scrapeResult.DeviceInfo?.Description ?? string.Empty,
                 ImageUrl = scrapeResult.DeviceInfo?.ImageUrl ?? string.Empty,
-                SourceUrl = scrapeResult.DeviceInfo?.SourceUrl ?? string.Empty
+                SourceUrl = scrapeResult.DeviceInfo?.SourceUrl ?? scrapeResult.SuggestedLookupUrl ?? string.Empty
             };
 
             return Ok(response);

@@ -83,6 +83,7 @@
                     <p class="mb-1"><strong>Code Type:</strong> @previewResult.ExtractedCodeType</p>
                     <p class="mb-1"><strong>Detected Vendor:</strong> @(string.IsNullOrWhiteSpace(previewResult.DetectedVendor) ? "Unknown" : previewResult.DetectedVendor)</p>
                     <p class="mb-1"><strong>Lookup Attempted:</strong> @(previewResult.CanAttemptLookup ? "Yes" : "No")</p>
+                    <p class="mb-1"><strong>Lookup Status:</strong> @ReadableLookupStatus(previewResult.LookupStatus)</p>
                     <p class="mb-0"><strong>Message:</strong> @previewResult.Message</p>
                 </div>
 
@@ -139,6 +140,15 @@
                         <div class="col-12">
                             <a class="btn btn-sm btn-outline-secondary" href="@previewResult.SourceUrl" target="_blank">
                                 View Source
+                            </a>
+                        </div>
+                    }
+
+                    @if (IsVendorBlocked(previewResult))
+                    {
+                        <div class="col-12">
+                            <a class="btn btn-sm btn-outline-warning" href="@previewResult.SupportLookupUrl" target="_blank">
+                                Open Dell Support Page
                             </a>
                         </div>
                     }
@@ -248,6 +258,8 @@
                 LookupSucceeded = lookupResult.Success,
                 Message = lookupResult.Message,
                 DetectedVendor = lookupResult.DetectedVendor,
+                LookupStatus = lookupResult.LookupStatus,
+                SupportLookupUrl = lookupResult.SuggestedLookupUrl,
                 ProductName = lookupResult.DeviceInfo?.ProductName ?? string.Empty,
                 Manufacturer = lookupResult.DeviceInfo?.Manufacturer ?? string.Empty,
                 ModelNumber = lookupResult.DeviceInfo?.ModelNumber ?? string.Empty,
@@ -255,13 +267,15 @@
                 Category = lookupResult.DeviceInfo?.Category ?? string.Empty,
                 Description = lookupResult.DeviceInfo?.Description ?? string.Empty,
                 ImageUrl = lookupResult.DeviceInfo?.ImageUrl ?? string.Empty,
-                SourceUrl = lookupResult.DeviceInfo?.SourceUrl ?? string.Empty
+                SourceUrl = lookupResult.DeviceInfo?.SourceUrl ?? lookupResult.SuggestedLookupUrl ?? string.Empty
             };
 
             PopulateReviewModelFromPreview();
             statusMessage = lookupResult.Success
                 ? "Lookup completed successfully. Review values before saving."
-                : "Lookup completed but did not return device information.";
+                : lookupResult.LookupStatus == "blocked"
+                    ? "Vendor blocked automated lookup. Use the Dell support link below to continue manually."
+                    : "Lookup completed but did not return device information.";
             isError = !lookupResult.Success;
         }
         catch (Exception ex)
@@ -478,6 +492,28 @@
             Description = previewResult.Description,
             UPC = previewResult.UPC,
             Category = previewResult.Category
+        };
+    }
+
+    private static bool IsVendorBlocked(ImageScrapePreviewResponse result)
+    {
+        return string.Equals(result.LookupStatus, "blocked", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(result.DetectedVendor, "Dell", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(result.SupportLookupUrl);
+    }
+
+    private static string ReadableLookupStatus(string status)
+    {
+        return status switch
+        {
+            "success" => "Success",
+            "blocked" => "Blocked",
+            "not_found" => "Not Found",
+            "not_supported" => "Not Supported",
+            "not_attempted" => "Not Attempted",
+            "failed_http" => "HTTP Failure",
+            "empty" => "Empty Response",
+            _ => string.IsNullOrWhiteSpace(status) ? "Unknown" : status
         };
     }
 }

@@ -19,31 +19,47 @@ namespace HomeLabManager.API.Services.Scraping
                 ? SerialVendorDetector.DetectVendor(query)
                 : string.Empty;
 
-            var attemptedProvider = false;
-            var lastFailureMessage = "No providers returned a match.";
+            ScrapeResult? lastFailure = null;
 
             foreach (var provider in _providers.Where(provider => provider.CanHandle(codeType, detectedVendor)))
             {
-                attemptedProvider = true;
                 var result = await provider.SearchAsync(query, detectedVendor);
 
                 if (result.Success)
                 {
                     result.DetectedVendor = detectedVendor;
+                    result.LookupStatus = string.IsNullOrWhiteSpace(result.LookupStatus)
+                        ? "success"
+                        : result.LookupStatus;
                     return result;
                 }
 
-                if (!string.IsNullOrWhiteSpace(result.Message))
+                lastFailure = result;
+            }
+
+            if (lastFailure != null)
+            {
+                return new ScrapeResult
                 {
-                    lastFailureMessage = result.Message;
-                }
+                    Success = false,
+                    Message = string.IsNullOrWhiteSpace(lastFailure.Message)
+                        ? "No providers returned a match."
+                        : lastFailure.Message,
+                    DetectedVendor = detectedVendor,
+                    LookupStatus = string.IsNullOrWhiteSpace(lastFailure.LookupStatus)
+                        ? "not_found"
+                        : lastFailure.LookupStatus,
+                    SuggestedLookupUrl = lastFailure.SuggestedLookupUrl,
+                    DeviceInfo = lastFailure.DeviceInfo
+                };
             }
 
             return new ScrapeResult
             {
                 Success = false,
-                Message = attemptedProvider ? lastFailureMessage : "No providers returned a match.",
-                DetectedVendor = detectedVendor
+                Message = "No providers returned a match.",
+                DetectedVendor = detectedVendor,
+                LookupStatus = "not_supported"
             };
         }
 

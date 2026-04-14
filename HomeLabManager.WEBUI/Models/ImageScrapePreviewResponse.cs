@@ -9,6 +9,8 @@
         public bool LookupSucceeded { get; set; }
         public string Message { get; set; } = string.Empty;
         public string DetectedVendor { get; set; } = string.Empty;
+        public string LookupStatus { get; set; } = string.Empty;
+        public string SupportLookupUrl { get; set; } = string.Empty;
 
         // Device information fields that may be returned from the lookup, these will be populated if the lookup was successful and the provider was able to extract this information, otherwise they will be empty strings
         public string ProductName { get; set; } = string.Empty;
