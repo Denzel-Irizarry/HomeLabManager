@@ -19,8 +19,12 @@ namespace HomeLabManager.API.Services.Scraping
                 ? SerialVendorDetector.DetectVendor(query)
                 : string.Empty;
 
+            var attemptedProvider = false;
+            var lastFailureMessage = "No providers returned a match.";
+
             foreach (var provider in _providers.Where(provider => provider.CanHandle(codeType, detectedVendor)))
             {
+                attemptedProvider = true;
                 var result = await provider.SearchAsync(query, detectedVendor);
 
                 if (result.Success)
@@ -28,12 +32,17 @@ namespace HomeLabManager.API.Services.Scraping
                     result.DetectedVendor = detectedVendor;
                     return result;
                 }
+
+                if (!string.IsNullOrWhiteSpace(result.Message))
+                {
+                    lastFailureMessage = result.Message;
+                }
             }
 
             return new ScrapeResult
             {
                 Success = false,
-                Message = "No providers returned a match.",
+                Message = attemptedProvider ? lastFailureMessage : "No providers returned a match.",
                 DetectedVendor = detectedVendor
             };
         }
