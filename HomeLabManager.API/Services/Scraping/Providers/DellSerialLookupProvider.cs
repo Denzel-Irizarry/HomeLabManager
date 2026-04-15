@@ -59,7 +59,92 @@ namespace HomeLabManager.API.Services.Scraping.Providers
                 lookupUrl = "https://www.dell.com/support/home/en-us/product-support/servicetag/{serial}/overview";
             }
 
-            var requestUrl = BuildLookupUrl(lookupUrl, query);
+            var manualLookupUrl = "https://www.dell.com/support/home/en-us";
+
+            // Try both service-tag page variants because Dell frequently changes route behavior.
+            var candidateUrls = new[]
+            {
+                BuildLookupUrl(lookupUrl, query),
+                BuildLookupUrl("https://www.dell.com/support/home/en-us/product-support/servicetag/{serial}", query)
+            }.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+            var lastFailure = new ScrapeResult
+            {
+                Success = false,
+                Message = "Dell lookup did not return a parseable result.",
+                LookupStatus = "not_found",
+                SuggestedLookupUrl = manualLookupUrl
+            };
+
+            foreach (var candidateUrl in candidateUrls)
+            {
+                var request = CreateDellRequest(candidateUrl);
+                var response = await _httpClient.SendAsync(request);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var statusCode = (int)response.StatusCode;
+                    lastFailure = new ScrapeResult
+                    {
+                        Success = false,
+                        Message = response.StatusCode == HttpStatusCode.Forbidden
+                            ? "Dell blocked direct service-tag scraping. Open Dell Support and enter the service tag manually."
+                            : $"Dell lookup request failed with status code {statusCode}.",
+                        LookupStatus = response.StatusCode == HttpStatusCode.Forbidden ? "manual_lookup_required" : "failed_http",
+                        SuggestedLookupUrl = manualLookupUrl
+                    };
+
+                    continue;
+                }
+
+                var responseBody = await response.Content.ReadAsStringAsync();
+                if (string.IsNullOrWhiteSpace(responseBody))
+                {
+                    lastFailure = new ScrapeResult
+                    {
+                        Success = false,
+                        Message = "Dell lookup returned an empty response.",
+                        LookupStatus = "empty",
+                        SuggestedLookupUrl = manualLookupUrl
+                    };
+
+                    continue;
+                }
+
+                if (ContainsBlockedMarker(responseBody))
+                {
+                    lastFailure = new ScrapeResult
+                    {
+                        Success = false,
+                        Message = "Dell blocked automated lookup from this endpoint. Open Dell Support and enter the service tag manually.",
+                        LookupStatus = "manual_lookup_required",
+                        SuggestedLookupUrl = manualLookupUrl
+                    };
+
+                    continue;
+                }
+
+                var parsedResult = TryParseDellResponse(responseBody, query, candidateUrl, response.RequestMessage?.RequestUri?.ToString());
+                if (parsedResult.Success)
+                {
+                    return parsedResult;
+                }
+
+                lastFailure = parsedResult;
+            }
+
+            // Final fallback for Dell-specific flow.
+            return new ScrapeResult
+            {
+                Success = false,
+                Message = "Dell did not return parseable product details. Open Dell Support and enter the service tag manually.",
+                LookupStatus = "manual_lookup_required",
+                SuggestedLookupUrl = manualLookupUrl
+            };
+        }
+
+        private static HttpRequestMessage CreateDellRequest(string requestUrl)
+        {
             var request = new HttpRequestMessage(HttpMethod.Get, requestUrl);
             request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/html"));
             request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/xhtml+xml"));
@@ -69,31 +154,19 @@ namespace HomeLabManager.API.Services.Scraping.Providers
             request.Headers.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36");
             request.Headers.AcceptLanguage.ParseAdd("en-US,en;q=0.9");
             request.Headers.Referrer = new Uri("https://www.dell.com/support/home/en-us");
+            return request;
+        }
 
-            var response = await _httpClient.SendAsync(request);
-            if (!response.IsSuccessStatusCode)
-            {
-                var statusCode = (int)response.StatusCode;
-                return new ScrapeResult
-                {
-                    Success = false,
-                    Message = $"Dell lookup request failed with status code {statusCode}.",
-                    LookupStatus = response.StatusCode == HttpStatusCode.Forbidden ? "blocked" : "failed_http",
-                    SuggestedLookupUrl = requestUrl
-                };
-            }
+        private static bool ContainsBlockedMarker(string responseBody)
+        {
+            return responseBody.Contains("Access Denied", StringComparison.OrdinalIgnoreCase)
+                || responseBody.Contains("errors.edgesuite.net", StringComparison.OrdinalIgnoreCase)
+                || responseBody.Contains("Request blocked", StringComparison.OrdinalIgnoreCase)
+                || responseBody.Contains("akamai", StringComparison.OrdinalIgnoreCase);
+        }
 
-            var responseBody = await response.Content.ReadAsStringAsync();
-            if (string.IsNullOrWhiteSpace(responseBody))
-            {
-                return new ScrapeResult
-                {
-                    Success = false,
-                    Message = "Dell lookup returned an empty response.",
-                    LookupStatus = "empty"
-                };
-            }
-
+        private static ScrapeResult TryParseDellResponse(string responseBody, string serial, string requestedUrl, string? responseUrl)
+        {
             var html = WebUtility.HtmlDecode(responseBody);
             var title = ExtractMetaContent(html, "property", "og:title");
             var description = ExtractMetaContent(html, "name", "description");
@@ -131,30 +204,42 @@ namespace HomeLabManager.API.Services.Scraping.Providers
                     Success = true,
                     Message = "Dell support page parsed successfully.",
                     LookupStatus = "success",
-                    SuggestedLookupUrl = string.IsNullOrWhiteSpace(canonicalUrl) ? requestUrl : canonicalUrl,
+                    SuggestedLookupUrl = string.IsNullOrWhiteSpace(canonicalUrl) ? requestedUrl : canonicalUrl,
                     DeviceInfo = new ScrapedDeviceInfo
                     {
                         ProductName = title,
-                        Manufacturer = manufacturer,
-                        ModelNumber = modelNumber,
-                        SerialNumber = query,
+                        Manufacturer = string.IsNullOrWhiteSpace(manufacturer) ? "Dell" : manufacturer,
+                        ModelNumber = string.IsNullOrWhiteSpace(modelNumber) ? serial : modelNumber,
+                        SerialNumber = serial,
                         Description = description,
                         ImageUrl = imageUrl,
-                        SourceUrl = string.IsNullOrWhiteSpace(canonicalUrl) ? response.RequestMessage?.RequestUri?.ToString() ?? requestUrl : canonicalUrl,
+                        SourceUrl = string.IsNullOrWhiteSpace(canonicalUrl) ? responseUrl ?? requestedUrl : canonicalUrl,
                         SourceType = ScrapeSourceType.VendorWebsite
                     }
                 };
             }
 
-            if (responseBody.Contains("Access Denied", StringComparison.OrdinalIgnoreCase)
-                || responseBody.Contains("403", StringComparison.OrdinalIgnoreCase))
+            // If JSON-LD is missing but a specific Dell page title exists, keep a best-effort result.
+            if (!string.IsNullOrWhiteSpace(title)
+                && !title.Contains("support home", StringComparison.OrdinalIgnoreCase)
+                && !title.Contains("access denied", StringComparison.OrdinalIgnoreCase))
             {
                 return new ScrapeResult
                 {
-                    Success = false,
-                    Message = "Dell support page blocked the request.",
-                    LookupStatus = "blocked",
-                    SuggestedLookupUrl = requestUrl
+                    Success = true,
+                    Message = "Dell support page returned a best-effort match.",
+                    LookupStatus = "partial_success",
+                    SuggestedLookupUrl = string.IsNullOrWhiteSpace(canonicalUrl) ? requestedUrl : canonicalUrl,
+                    DeviceInfo = new ScrapedDeviceInfo
+                    {
+                        ProductName = title,
+                        Manufacturer = "Dell",
+                        ModelNumber = serial,
+                        SerialNumber = serial,
+                        Description = description,
+                        SourceUrl = string.IsNullOrWhiteSpace(canonicalUrl) ? responseUrl ?? requestedUrl : canonicalUrl,
+                        SourceType = ScrapeSourceType.VendorWebsite
+                    }
                 };
             }
 
@@ -163,7 +248,7 @@ namespace HomeLabManager.API.Services.Scraping.Providers
                 Success = false,
                 Message = "Dell support page did not contain recognized product information.",
                 LookupStatus = "not_found",
-                SuggestedLookupUrl = requestUrl
+                SuggestedLookupUrl = requestedUrl
             };
         }
 

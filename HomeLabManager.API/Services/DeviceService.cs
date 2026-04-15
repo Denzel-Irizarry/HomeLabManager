@@ -11,6 +11,7 @@ namespace HomeLabManager.API.Services
 {
     public class DeviceService
     {
+        // This service coordinates scan/manual registration and keeps related entities consistent.
         //initiateing the dependencies for the device service, these are the services that will be used to complete the process of registering a device
         private readonly ScanServiceInterface scanService;
         private readonly VendorLookupInterface vendorLookup;
@@ -66,6 +67,13 @@ namespace HomeLabManager.API.Services
             var product = await vendorLookup.GetProductBySerialAsync(serial);
             // vendor lookup completed
 
+            //reuse an existing vendor when the normalized name already exists
+            var vendor = await GetOrCreateVendorAsync(product.Vendor?.VendorName ?? "Unknown Vendor", product.Vendor?.VendorBaseUrl);
+
+            // Always re-point the product to the canonical vendor row so duplicates are not created.
+            product.VendorId = vendor.Id;
+            product.Vendor = vendor;
+
             //create the actual device
             var device = new Device
             {
@@ -76,11 +84,7 @@ namespace HomeLabManager.API.Services
                 CreatedAtUtc = DateTime.UtcNow
             };
 
-            //explicitly add vendor and product to DbContext to ensure they are tracked
-            if (product.Vendor != null)
-            {
-                dbContext.Vendors.Add(product.Vendor);
-            }
+            //add the new product to DbContext while reusing any existing vendor row
             dbContext.Products.Add(product);
 
             //adds the created device so it can persist
@@ -145,6 +149,35 @@ namespace HomeLabManager.API.Services
             };
         }
 
+        private async Task<Vendor> GetOrCreateVendorAsync(string vendorName, string? vendorBaseUrl = null)
+        {
+            // Normalize values so case and extra spaces don't create duplicate vendor rows.
+            var normalizedVendorName = string.IsNullOrWhiteSpace(vendorName)
+                ? "Unknown Vendor"
+                : vendorName.Trim();
+
+            // Compare vendor names in a case-insensitive way against existing rows.
+            var existingVendor = await dbContext.Vendors.FirstOrDefaultAsync(vendor =>
+                vendor.VendorName.Trim().ToUpper() == normalizedVendorName.ToUpper());
+
+            if (existingVendor != null)
+            {
+                // Reuse the existing vendor so all related products/devices stay connected.
+                return existingVendor;
+            }
+
+            // No match found: create a new canonical vendor row.
+            var vendor = new Vendor
+            {
+                Id = Guid.NewGuid(),
+                VendorName = normalizedVendorName,
+                VendorBaseUrl = vendorBaseUrl
+            };
+
+            await dbContext.Vendors.AddAsync(vendor);
+            return vendor;
+        }
+
         public async Task<DeviceResponseDataTransferObject> RegisterManualDeviceAsync(ManualDeviceRegisterRequest request)
         {
             if (string.IsNullOrWhiteSpace(request.SerialNumber) && string.IsNullOrWhiteSpace(request.NickName))
@@ -157,12 +190,8 @@ namespace HomeLabManager.API.Services
                     throw new DuplicateSerialNumberException("A device with the same serial number already exists.");
             }
 
-            //sets the vendor for the manual entry
-            var vendor = new Vendor
-            {
-                Id = Guid.NewGuid(),
-                VendorName = request.VendorName ?? "ManualEntry"//returns this if left null
-            };
+            //reuse an existing vendor when the normalized name already exists
+            var vendor = await GetOrCreateVendorAsync(request.VendorName ?? "ManualEntry");
 
             //sets the product info for manual entry
             var product = new Product
@@ -170,6 +199,7 @@ namespace HomeLabManager.API.Services
                 Id = Guid.NewGuid(),
                 ProductName = request.ProductName ?? "Unkown Product",//returns this if left null
                 ModelNumber = request.ModelNumber ?? "Unknown Model",
+                // Manual registration also uses the canonical vendor row returned above.
                 VendorId = vendor.Id,
                 Vendor = vendor
             };
@@ -186,8 +216,7 @@ namespace HomeLabManager.API.Services
                 CreatedAtUtc = DateTime.UtcNow
             };
 
-            //explicitly add vendor and product to DbContext to ensure they are tracked
-            dbContext.Vendors.Add(vendor);
+            //add the new product to DbContext while reusing any existing vendor row
             dbContext.Products.Add(product);
 
             //adds the created device so it can persist

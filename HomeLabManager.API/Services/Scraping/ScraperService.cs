@@ -38,8 +38,28 @@ namespace HomeLabManager.API.Services.Scraping
                     return result;
                 }
 
+                // If a vendor provider explicitly says "manual lookup required" and gives a URL,
+                // preserve that authoritative guidance instead of falling through to generic web search.
+                if (!string.IsNullOrWhiteSpace(detectedVendor)
+                    && !string.IsNullOrWhiteSpace(result.DetectedVendor)
+                    && string.Equals(result.DetectedVendor, detectedVendor, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(result.LookupStatus, "manual_lookup_required", StringComparison.OrdinalIgnoreCase)
+                    && !string.IsNullOrWhiteSpace(result.SuggestedLookupUrl))
+                {
+                    return result;
+                }
+
+                var lastIsUnconfirmedManual = !string.IsNullOrWhiteSpace(detectedVendor)
+                    && lastFailure != null
+                    && string.Equals(lastFailure.LookupStatus, "manual_lookup_required", StringComparison.OrdinalIgnoreCase)
+                    && (string.IsNullOrWhiteSpace(lastFailure.DetectedVendor)
+                        || !string.Equals(lastFailure.DetectedVendor, detectedVendor, StringComparison.OrdinalIgnoreCase));
+
+                var currentIsManual = string.Equals(result.LookupStatus, "manual_lookup_required", StringComparison.OrdinalIgnoreCase);
+
                 if (lastFailure == null
-                    || (!string.IsNullOrWhiteSpace(result.SuggestedLookupUrl) && string.IsNullOrWhiteSpace(lastFailure.SuggestedLookupUrl)))
+                    || (!string.IsNullOrWhiteSpace(result.SuggestedLookupUrl) && string.IsNullOrWhiteSpace(lastFailure.SuggestedLookupUrl))
+                    || (lastIsUnconfirmedManual && !currentIsManual))
                 {
                     lastFailure = result;
                 }
