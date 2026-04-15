@@ -4,4 +4,7 @@
   <Project Path="HomeLabManager.WEBUI/HomeLabManager.WEBUI.csproj">
     <BuildDependency Project="HomeLabManager.Core/HomeLabManager.Core.csproj" />
   </Project>
+  <Project Path="HomeLabManager.API.Tests/HomeLabManager.API.Tests.csproj">
+    <BuildDependency Project="HomeLabManager.API/HomeLabManager.API.csproj" />
+  </Project>
 </Solution>
