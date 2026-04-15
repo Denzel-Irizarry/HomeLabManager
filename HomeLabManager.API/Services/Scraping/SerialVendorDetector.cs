@@ -10,13 +10,20 @@ namespace HomeLabManager.API.Services.Scraping
             }
 
             var normalizedSerial = serial.Trim();
+            var alphanumericSerial = new string(normalizedSerial.Where(char.IsLetterOrDigit).ToArray());
 
-            if (IsLikelyDellServiceTag(normalizedSerial))
+            if (normalizedSerial.Contains("CISCO", StringComparison.OrdinalIgnoreCase)
+                || alphanumericSerial.StartsWith("CISCO", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Cisco";
+            }
+
+            if (IsLikelyDellServiceTag(alphanumericSerial))
             {
                 return "Dell";
             }
 
-            if (IsLikelyCiscoSerialNumber(normalizedSerial))
+            if (IsLikelyCiscoSerialNumber(alphanumericSerial))
             {
                 return "Cisco";
             }
