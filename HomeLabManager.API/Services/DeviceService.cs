@@ -79,9 +79,9 @@ namespace HomeLabManager.API.Services
             //explicitly add vendor and product to DbContext to ensure they are tracked
             if (product.Vendor != null)
             {
-                await dbContext.Vendors.AddAsync(product.Vendor);
+                dbContext.Vendors.Add(product.Vendor);
             }
-            await dbContext.Products.AddAsync(product);
+            dbContext.Products.Add(product);
 
             //adds the created device so it can persist
             await deviceRepository.AddAsync(device);
@@ -187,8 +187,8 @@ namespace HomeLabManager.API.Services
             };
 
             //explicitly add vendor and product to DbContext to ensure they are tracked
-            await dbContext.Vendors.AddAsync(vendor);
-            await dbContext.Products.AddAsync(product);
+            dbContext.Vendors.Add(vendor);
+            dbContext.Products.Add(product);
 
             //adds the created device so it can persist
             await deviceRepository.AddAsync(device);
