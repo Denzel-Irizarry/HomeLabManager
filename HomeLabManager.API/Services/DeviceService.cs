@@ -76,6 +76,13 @@ namespace HomeLabManager.API.Services
                 CreatedAtUtc = DateTime.UtcNow
             };
 
+            //explicitly add vendor and product to DbContext to ensure they are tracked
+            if (product.Vendor != null)
+            {
+                await dbContext.Vendors.AddAsync(product.Vendor);
+            }
+            await dbContext.Products.AddAsync(product);
+
             //adds the created device so it can persist
             await deviceRepository.AddAsync(device);
             // device added to DbContext
@@ -178,6 +185,10 @@ namespace HomeLabManager.API.Services
                 Product = product,
                 CreatedAtUtc = DateTime.UtcNow
             };
+
+            //explicitly add vendor and product to DbContext to ensure they are tracked
+            await dbContext.Vendors.AddAsync(vendor);
+            await dbContext.Products.AddAsync(product);
 
             //adds the created device so it can persist
             await deviceRepository.AddAsync(device);
