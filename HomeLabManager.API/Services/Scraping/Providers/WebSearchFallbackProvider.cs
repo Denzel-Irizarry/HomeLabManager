@@ -223,7 +223,14 @@ namespace HomeLabManager.API.Services.Scraping.Providers
                 encoded = encoded[..ampIndex];
             }
 
-            return Uri.UnescapeDataString(encoded);
+            try
+            {
+                return Uri.UnescapeDataString(encoded);
+            }
+            catch (UriFormatException)
+            {
+                return rawUrl;
+            }
         }
 
         private static string CleanupHtmlText(string html)
