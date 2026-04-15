@@ -15,7 +15,7 @@ namespace HomeLabManager.API.Services.Scraping.Providers
 
         public Task<ScrapeResult> SearchAsync(string query, string? vendor = null)
         {
-            if(string.Equals(query, "MXQ2160G6X", StringComparison.OrdinalIgnoreCase))
+            if(string.Equals(query, "TEST-SERIAL-001", StringComparison.OrdinalIgnoreCase))
             {
                 return Task.FromResult(new ScrapeResult
                 {
@@ -26,7 +26,7 @@ namespace HomeLabManager.API.Services.Scraping.Providers
                         ProductName = "Test Router",
                         Manufacturer = "FakeVendor",
                         ModelNumber = "FAKE-1000",
-                        SerialNumber = "MXQ2160G6X",
+                        SerialNumber = "TEST-SERIAL-001",
                         UPC = "123456789012",
                         Category = "Networking",
                         Description = "Fake test device returned by the fake provider.",
