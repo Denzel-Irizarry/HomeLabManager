@@ -52,6 +52,7 @@ namespace HomeLabManager.API
             builder.Services.AddHttpClient<HpeSerialLookupProvider>();
             builder.Services.AddHttpClient<DellSerialLookupProvider>();
             builder.Services.AddHttpClient<CiscoSerialLookupProvider>();
+            builder.Services.AddHttpClient<WebSearchFallbackProvider>();
             builder.Services.AddScoped<IHardwareLookupProvider, UpcLookupProvider>();
             builder.Services.AddScoped<IHardwareLookupProvider, HpeSerialLookupProvider>();
             builder.Services.AddScoped<IHardwareLookupProvider, DellSerialLookupProvider>();
@@ -64,6 +65,9 @@ namespace HomeLabManager.API
                 builder.Services.AddScoped<IHardwareLookupProvider, FakeCiscoSerialLookupProvider>();
                 builder.Services.AddScoped<IHardwareLookupProvider, FakeSerialLookupProvider>();
             }
+
+            // Always keep this provider last so it runs only as a final fallback.
+            builder.Services.AddScoped<IHardwareLookupProvider, WebSearchFallbackProvider>();
             
             //ComponentRespositoryInterface, ComponentRepository: Maps interface to implementation
             builder.Services.AddScoped<ComponentRepositoryInterface, ComponentRepository>();
