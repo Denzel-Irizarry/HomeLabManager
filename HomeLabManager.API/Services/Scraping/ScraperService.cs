@@ -27,14 +27,22 @@ namespace HomeLabManager.API.Services.Scraping
 
                 if (result.Success)
                 {
-                    result.DetectedVendor = detectedVendor;
+                    if (string.IsNullOrWhiteSpace(result.DetectedVendor))
+                    {
+                        result.DetectedVendor = detectedVendor;
+                    }
+
                     result.LookupStatus = string.IsNullOrWhiteSpace(result.LookupStatus)
                         ? "success"
                         : result.LookupStatus;
                     return result;
                 }
 
-                lastFailure = result;
+                if (lastFailure == null
+                    || (!string.IsNullOrWhiteSpace(result.SuggestedLookupUrl) && string.IsNullOrWhiteSpace(lastFailure.SuggestedLookupUrl)))
+                {
+                    lastFailure = result;
+                }
             }
 
             if (lastFailure != null)
@@ -45,7 +53,9 @@ namespace HomeLabManager.API.Services.Scraping
                     Message = string.IsNullOrWhiteSpace(lastFailure.Message)
                         ? "No providers returned a match."
                         : lastFailure.Message,
-                    DetectedVendor = detectedVendor,
+                    DetectedVendor = string.IsNullOrWhiteSpace(lastFailure.DetectedVendor)
+                        ? detectedVendor
+                        : lastFailure.DetectedVendor,
                     LookupStatus = string.IsNullOrWhiteSpace(lastFailure.LookupStatus)
                         ? "not_found"
                         : lastFailure.LookupStatus,

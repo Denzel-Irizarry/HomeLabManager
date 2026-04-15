@@ -68,8 +68,7 @@ namespace HomeLabManager.API.Services.Scraping.Providers
                 Success = false,
                 Message = "Fake Cisco provider found no match.",
                 LookupStatus = "not_found",
-                DetectedVendor = "Cisco",
-                SuggestedLookupUrl = "https://www.cisco.com/c/en/us/support/all-products.html"
+                DetectedVendor = "Cisco"
             });
         }
     }
