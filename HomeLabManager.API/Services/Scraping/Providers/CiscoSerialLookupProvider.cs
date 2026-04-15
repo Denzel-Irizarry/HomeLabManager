@@ -57,9 +57,11 @@ namespace HomeLabManager.API.Services.Scraping.Providers
             var lookupUrl = _configuration["CiscoSupport:LookupUrl"];
             if (string.IsNullOrWhiteSpace(lookupUrl))
             {
-                lookupUrl = "https://sn2info.cisco.com/serial/{serial}";
+                lookupUrl = "https://www.cisco.com/c/en/us/support/all-products.html";
             }
 
+            // The support page URL is always the manual fallback link shown to users
+            var supportPageUrl = "https://www.cisco.com/c/en/us/support/all-products.html";
             var requestUrl = BuildLookupUrl(lookupUrl, query);
             var request = new HttpRequestMessage(HttpMethod.Get, requestUrl);
             request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/html"));
@@ -93,7 +95,7 @@ namespace HomeLabManager.API.Services.Scraping.Providers
                             HttpStatusCode.NotFound => "not_found",
                             _ => "failed_http"
                         },
-                        SuggestedLookupUrl = requestUrl
+                            SuggestedLookupUrl = supportPageUrl
                     };
                 }
 
@@ -105,7 +107,7 @@ namespace HomeLabManager.API.Services.Scraping.Providers
                         Success = false,
                         Message = "Cisco lookup returned an empty response.",
                         LookupStatus = "empty",
-                        SuggestedLookupUrl = requestUrl
+                        SuggestedLookupUrl = supportPageUrl
                     };
                 }
 
@@ -140,6 +142,22 @@ namespace HomeLabManager.API.Services.Scraping.Providers
                         continue;
                     }
 
+                    var isGenericSupportLandingPage = title.Contains("All Products - Support and Downloads", StringComparison.OrdinalIgnoreCase)
+                        || description.Contains("Support Category page for All Products", StringComparison.OrdinalIgnoreCase)
+                        || (!string.IsNullOrWhiteSpace(canonicalUrl)
+                            && canonicalUrl.Contains("/support/all-products", StringComparison.OrdinalIgnoreCase));
+
+                    if (isGenericSupportLandingPage)
+                    {
+                        return new ScrapeResult
+                        {
+                            Success = false,
+                            Message = "Cisco did not return a specific product from the serial lookup. Use the Cisco support page to continue manually.",
+                            LookupStatus = "manual_lookup_required",
+                            SuggestedLookupUrl = supportPageUrl
+                        };
+                    }
+
                     return new ScrapeResult
                     {
                         Success = true,
@@ -169,7 +187,7 @@ namespace HomeLabManager.API.Services.Scraping.Providers
                         Success = false,
                         Message = "Cisco lookup did not find a matching serial number.",
                         LookupStatus = "not_found",
-                        SuggestedLookupUrl = requestUrl
+                        SuggestedLookupUrl = supportPageUrl
                     };
                 }
 
@@ -178,7 +196,7 @@ namespace HomeLabManager.API.Services.Scraping.Providers
                     Success = false,
                     Message = "Cisco lookup response did not contain recognized product information.",
                     LookupStatus = "not_found",
-                    SuggestedLookupUrl = requestUrl
+                    SuggestedLookupUrl = supportPageUrl
                 };
             }
             catch (HttpRequestException ex)
@@ -188,7 +206,7 @@ namespace HomeLabManager.API.Services.Scraping.Providers
                     Success = false,
                     Message = $"Cisco lookup endpoint unreachable: {ex.Message}",
                     LookupStatus = "connection_error",
-                    SuggestedLookupUrl = requestUrl
+                    SuggestedLookupUrl = supportPageUrl
                 };
             }
             catch (OperationCanceledException)
@@ -198,7 +216,7 @@ namespace HomeLabManager.API.Services.Scraping.Providers
                     Success = false,
                     Message = "Cisco lookup request timed out.",
                     LookupStatus = "timeout",
-                    SuggestedLookupUrl = requestUrl
+                    SuggestedLookupUrl = supportPageUrl
                 };
             }
             catch (Exception ex)
@@ -208,7 +226,7 @@ namespace HomeLabManager.API.Services.Scraping.Providers
                     Success = false,
                     Message = $"Cisco lookup failed with error: {ex.Message}",
                     LookupStatus = "error",
-                    SuggestedLookupUrl = requestUrl
+                    SuggestedLookupUrl = supportPageUrl
                 };
             }
         }

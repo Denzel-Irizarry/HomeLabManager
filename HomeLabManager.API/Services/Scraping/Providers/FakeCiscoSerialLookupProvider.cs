@@ -25,6 +25,7 @@ namespace HomeLabManager.API.Services.Scraping.Providers
                     Message = "Fake Cisco provider found a match.",
                     LookupStatus = "success",
                     DetectedVendor = "Cisco",
+                    SuggestedLookupUrl = "https://www.cisco.com/c/en/us/support/all-products.html",
                     DeviceInfo = new ScrapedDeviceInfo
                     {
                         ProductName = "Catalyst 2960-X Series Switch",
@@ -33,7 +34,7 @@ namespace HomeLabManager.API.Services.Scraping.Providers
                         SerialNumber = "FCW2621A40F",
                         Category = "Networking",
                         Description = "Cisco Catalyst 2960-X 48 Port GigabitEthernet Switch",
-                        SourceUrl = "https://tools.cisco.com/security/center/publicationLookup.x",
+                        SourceUrl = "https://www.cisco.com/c/en/us/support/all-products.html",
                         SourceType = ScrapeSourceType.VendorWebsite
                     }
                 });
@@ -47,6 +48,7 @@ namespace HomeLabManager.API.Services.Scraping.Providers
                     Message = "Fake Cisco provider found a match.",
                     LookupStatus = "success",
                     DetectedVendor = "Cisco",
+                    SuggestedLookupUrl = "https://www.cisco.com/c/en/us/support/all-products.html",
                     DeviceInfo = new ScrapedDeviceInfo
                     {
                         ProductName = "Cisco ASR 1002-X Router",
@@ -55,7 +57,7 @@ namespace HomeLabManager.API.Services.Scraping.Providers
                         SerialNumber = "JAE17260H8Z",
                         Category = "Networking",
                         Description = "Aggregation Services Router with 10 GbE throughput",
-                        SourceUrl = "https://tools.cisco.com/security/center/publicationLookup.x",
+                        SourceUrl = "https://www.cisco.com/c/en/us/support/all-products.html",
                         SourceType = ScrapeSourceType.VendorWebsite
                     }
                 });
@@ -66,7 +68,8 @@ namespace HomeLabManager.API.Services.Scraping.Providers
                 Success = false,
                 Message = "Fake Cisco provider found no match.",
                 LookupStatus = "not_found",
-                DetectedVendor = "Cisco"
+                DetectedVendor = "Cisco",
+                SuggestedLookupUrl = "https://www.cisco.com/c/en/us/support/all-products.html"
             });
         }
     }
