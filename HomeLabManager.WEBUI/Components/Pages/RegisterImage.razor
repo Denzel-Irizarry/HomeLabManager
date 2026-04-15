@@ -144,11 +144,11 @@
                         </div>
                     }
 
-                    @if (IsVendorBlocked(previewResult))
+                    @if (ShouldShowManualLookupLink(previewResult))
                     {
                         <div class="col-12">
                             <a class="btn btn-sm btn-outline-warning" href="@previewResult.SupportLookupUrl" target="_blank">
-                                Open Dell Support Page
+                                @GetManualLookupButtonText(previewResult)
                             </a>
                         </div>
                     }
@@ -273,8 +273,8 @@
             PopulateReviewModelFromPreview();
             statusMessage = lookupResult.Success
                 ? "Lookup completed successfully. Review values before saving."
-                : lookupResult.LookupStatus == "blocked"
-                    ? "Vendor blocked automated lookup. Use the Dell support link below to continue manually."
+                : lookupResult.LookupStatus == "blocked" || lookupResult.LookupStatus == "manual_lookup_required"
+                    ? "Automated lookup could not get a specific product. Use the vendor support link below to continue manually."
                     : "Lookup completed but did not return device information.";
             isError = !lookupResult.Success;
         }
@@ -495,11 +495,32 @@
         };
     }
 
-    private static bool IsVendorBlocked(ImageScrapePreviewResponse result)
+    private static bool ShouldShowManualLookupLink(ImageScrapePreviewResponse result)
     {
-        return string.Equals(result.LookupStatus, "blocked", StringComparison.OrdinalIgnoreCase)
-            && string.Equals(result.DetectedVendor, "Dell", StringComparison.OrdinalIgnoreCase)
-            && !string.IsNullOrWhiteSpace(result.SupportLookupUrl);
+        // Show manual lookup link when automatic lookup fails or is blocked
+        if (string.IsNullOrWhiteSpace(result.SupportLookupUrl) || string.IsNullOrWhiteSpace(result.DetectedVendor))
+        {
+            return false;
+        }
+
+        var failureStatuses = new[] 
+        { 
+            "blocked",           // Vendor actively blocked the request
+            "manual_lookup_required", // Vendor returned a generic support page
+            "not_found",         // No exact serial match was found
+            "connection_error",  // Can't reach the endpoint
+            "auth_required",     // Auth/permission issues
+            "rate_limited",      // Rate limiting
+            "timeout"            // Request timeout
+        };
+
+        return !result.LookupSucceeded 
+            && failureStatuses.Contains(result.LookupStatus);
+    }
+
+    private static string GetManualLookupButtonText(ImageScrapePreviewResponse result)
+    {
+        return $"Open {result.DetectedVendor} Support Page";
     }
 
     private static string ReadableLookupStatus(string status)
@@ -507,12 +528,19 @@
         return status switch
         {
             "success" => "Success",
-            "blocked" => "Blocked",
+            "blocked" => "Blocked by Vendor",
+            "manual_lookup_required" => "Manual Lookup Required",
             "not_found" => "Not Found",
             "not_supported" => "Not Supported",
             "not_attempted" => "Not Attempted",
             "failed_http" => "HTTP Failure",
             "empty" => "Empty Response",
+            "connection_error" => "Connection Error",
+            "auth_required" => "Authentication Required",
+            "rate_limited" => "Rate Limited",
+            "timeout" => "Request Timeout",
+            "not_enabled" => "Not Enabled",
+            "failed_validation" => "Validation Failed",
             _ => string.IsNullOrWhiteSpace(status) ? "Unknown" : status
         };
     }
