@@ -47,10 +47,13 @@ namespace HomeLabManager.API
       
             //Hardware lookup providers - this is where we can add multiple providers and the scraper service will use them in order until it finds a match
             builder.Services.AddHttpClient<UpcLookupProvider>();
+            builder.Services.AddHttpClient<HpeSerialLookupProvider>();
             builder.Services.AddHttpClient<DellSerialLookupProvider>();
             builder.Services.AddHttpClient<CiscoSerialLookupProvider>();
             builder.Services.AddScoped<IHardwareLookupProvider, FakeHardwareLookupProvider>();
             builder.Services.AddScoped<IHardwareLookupProvider, UpcLookupProvider>();
+            builder.Services.AddScoped<IHardwareLookupProvider, FakeHpeSerialLookupProvider>();
+            builder.Services.AddScoped<IHardwareLookupProvider, HpeSerialLookupProvider>();
             builder.Services.AddScoped<IHardwareLookupProvider, DellSerialLookupProvider>();
             builder.Services.AddScoped<IHardwareLookupProvider, FakeCiscoSerialLookupProvider>();
             builder.Services.AddScoped<IHardwareLookupProvider, CiscoSerialLookupProvider>();
