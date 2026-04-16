@@ -4,61 +4,107 @@ This diagram shows the high-level runtime components of HomeLabManager,
 how they are organised into projects, and how data flows between them.
 
 ```mermaid
-graph TB
-    subgraph Browser["🌐 Browser / End User"]
-        UI[Blazor Server UI\nHomeLabManager.WEBUI]
+flowchart TD
+    subgraph BROWSER["🌐  Browser / End User"]
+        UI["Blazor Server UI
+        HomeLabManager.WEBUI
+        ───────────────────
+        Dashboard · Devices · Components
+        Vendors · Register · Settings"]
     end
 
-    subgraph API_Server["🖥️ API Server\nHomeLabManager.API"]
-        direction TB
-        Controllers["Controllers\nDevices · Components\nDeviceComponents · Scraper · Vendors"]
-        Services["Services\nDeviceService · ComponentService\nDeviceComponentService · ScraperService"]
-        Repositories["Repositories\nDeviceRepository · ComponentRepository\nDeviceComponentRepository"]
-        DBContext["ApplicationDBContext\n(EF Core)"]
-        ScanSvc["ScanService\n(barcode / QR extraction)"]
-        ScrapingPipeline["Scraping Provider Pipeline\nUpcLookupProvider\nHpeSerialLookupProvider\nDellSerialLookupProvider\nCiscoSerialLookupProvider\nWebSearchFallbackProvider"]
+    subgraph API["🖥️  HomeLabManager.API"]
+        CTRL["Controllers
+        ───────────────────
+        Devices · Components
+        DeviceComponents · Scraper · Vendors"]
+
+        SVC["Services
+        ───────────────────
+        DeviceService · ComponentService
+        DeviceComponentService · ScraperService"]
+
+        REPO["Repositories
+        ───────────────────
+        DeviceRepository
+        ComponentRepository
+        DeviceComponentRepository"]
+
+        SCAN["ScanService
+        ───────────────────
+        Barcode / QR extraction"]
+
+        PIPE["Scraping Providers
+        ───────────────────
+        UpcLookupProvider
+        HpeSerialLookupProvider
+        DellSerialLookupProvider
+        CiscoSerialLookupProvider
+        WebSearchFallbackProvider"]
+
+        DBC[("ApplicationDBContext
+        EF Core")]
     end
 
-    subgraph Core["📦 Shared Library\nHomeLabManager.Core"]
-        Entities["Domain Entities\nDevice · Product · Vendor\nComponent · DeviceComponent"]
-        ScrapingContracts["Scraping Contracts\nScrapeResult · ScrapedDeviceInfo\nScrapeRequest"]
+    subgraph CORE["📦  HomeLabManager.Core  (shared library)"]
+        ENT["Domain Entities
+        ───────────────────
+        Device · Product · Vendor
+        Component · DeviceComponent"]
+
+        DTO["Scraping Contracts
+        ───────────────────
+        ScrapeResult · ScrapedDeviceInfo
+        ScrapeRequest"]
     end
 
-    subgraph DB["🗄️ Persistence"]
-        SQLite[(SQLite Database\nhomelabmanager.db)]
+    subgraph PERSIST["🗄️  Persistence"]
+        DB[("SQLite Database
+        homelabmanager.db")]
     end
 
-    subgraph Tests["🧪 Test Project\nHomeLabManager.API.Tests"]
-        xUnit["xUnit Tests\nScraperServiceRoutingTests\nSerialVendorDetectorTests\nDeviceServiceVendorDedupTests"]
-        FakeImpls["Fake Implementations\nFakeVendorLookupTest\nFakeHardwareLookupProvider\nFakeHpeSerialLookupProvider\nFakeCiscoSerialLookupProvider\nFakeSerialLookupProvider"]
+    subgraph TESTS["🧪  HomeLabManager.API.Tests"]
+        UNIT["xUnit Tests
+        ───────────────────
+        ScraperServiceRoutingTests
+        SerialVendorDetectorTests
+        DeviceServiceVendorDedupTests"]
+
+        FAKE["Fake Implementations
+        ───────────────────
+        FakeVendorLookupTest
+        FakeHardwareLookupProvider
+        FakeHpeSerialLookupProvider
+        FakeCiscoSerialLookupProvider"]
     end
 
-    %% Data flow
-    UI -->|"HTTP REST (HttpClient)"| Controllers
-    Controllers --> Services
-    Services --> Repositories
-    Services --> ScanSvc
-    Services --> ScrapingPipeline
-    Repositories --> DBContext
-    DBContext --> SQLite
+    %% ── Runtime data flow ───────────────────────────────────────────────────
+    UI      -->|"HTTP REST"| CTRL
+    CTRL    --> SVC
+    SVC     --> REPO
+    SVC     --> SCAN
+    SVC     --> PIPE
+    REPO    --> DBC
+    DBC     --> DB
 
-    %% Shared library references
-    API_Server -.->|"ProjectReference"| Core
-    UI -.->|"ProjectReference"| Core
-    Tests -.->|"ProjectReference"| API_Server
-    Tests -.->|"ProjectReference"| Core
+    %% ── Project references ──────────────────────────────────────────────────
+    API     -.->|"ProjectReference"| CORE
+    BROWSER -.->|"ProjectReference"| CORE
+    TESTS   -.->|"ProjectReference"| API
+    TESTS   -.->|"ProjectReference"| CORE
 
-    %% Style
-    classDef project fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f
-    classDef db fill:#d1fae5,stroke:#10b981,color:#064e3b
-    classDef test fill:#fef9c3,stroke:#eab308,color:#713f12
-    classDef browser fill:#ede9fe,stroke:#8b5cf6,color:#3b0764
+    %% ── Styles ──────────────────────────────────────────────────────────────
+    classDef ui       fill:#ede9fe,stroke:#8b5cf6,color:#3b0764
+    classDef api      fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f
+    classDef core     fill:#e0f2fe,stroke:#0284c7,color:#0c4a6e
+    classDef persist  fill:#d1fae5,stroke:#10b981,color:#064e3b
+    classDef test     fill:#fef9c3,stroke:#d97706,color:#78350f
 
-    class UI browser
-    class Controllers,Services,Repositories,DBContext,ScanSvc,ScrapingPipeline project
-    class Entities,ScrapingContracts project
-    class SQLite db
-    class xUnit,FakeImpls test
+    class UI ui
+    class CTRL,SVC,REPO,SCAN,PIPE,DBC api
+    class ENT,DTO core
+    class DB persist
+    class UNIT,FAKE test
 ```
 
 ## Component Responsibilities

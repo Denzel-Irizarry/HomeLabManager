@@ -9,47 +9,47 @@ This diagram shows how the scraper feature works — either from a text query
 sequenceDiagram
     autonumber
     actor User
-    participant WEBUI as Blazor UI<br/>(Scraper page)
-    participant API as ScraperController<br/>POST /api/scraper/search
-    participant ScraperSvc as ScraperService
-    participant Detector as SerialVendorDetector
-    participant Providers as IHardwareLookupProvider chain
-    participant ExtAPI as External APIs<br/>(UPC DB / HPE / Dell / Cisco / Web)
+    participant UI as Blazor UI
+    participant API as ScraperController
+    participant Svc as ScraperService
+    participant Det as VendorDetector
+    participant Pvd as HW Providers
+    participant Ext as External APIs
 
-    User->>WEBUI: Enter serial number or UPC, click "Search"
-    WEBUI->>API: POST /api/scraper/search {Query: "..."}
+    User->>UI: Enter serial / UPC, click "Search"
+    UI->>API: POST /api/scraper/search
 
-    API->>API: AnalyzeSearchQuery(query)<br/>→ "Upc" if all digits, else "SerialNumber"
-    API->>ScraperSvc: LookupDeviceAsync(query, codeType)
+    API->>API: AnalyzeQuery → "Upc" or "SerialNumber"
+    API->>Svc: LookupDeviceAsync(query, codeType)
 
-    alt codeType == "SerialNumber"
-        ScraperSvc->>Detector: DetectVendor(query)
-        Detector-->>ScraperSvc: detectedVendor (e.g. "HPE", "Dell", "Cisco")
-    else codeType == "Upc"
-        ScraperSvc->>ScraperSvc: detectedVendor = ""
+    alt SerialNumber
+        Svc->>Det: DetectVendor(query)
+        Det-->>Svc: vendor (HPE / Dell / Cisco / "")
+    else Upc
+        Svc->>Svc: vendor = ""
     end
 
-    loop For each provider where CanHandle(codeType, detectedVendor) == true
-        ScraperSvc->>Providers: SearchAsync(query, detectedVendor)
-        Providers->>ExtAPI: HTTP call to vendor / UPC API
-        ExtAPI-->>Providers: raw response
-        Providers-->>ScraperSvc: ScrapeResult
+    loop Each provider where CanHandle == true
+        Svc->>Pvd: SearchAsync(query, vendor)
+        Pvd->>Ext: API call
+        Ext-->>Pvd: raw response
+        Pvd-->>Svc: ScrapeResult
 
-        alt result.Success == true
-            ScraperSvc-->>API: return ScrapeResult (success)
-        else result.LookupStatus == "manual_lookup_required" with URL
-            ScraperSvc-->>API: return ScrapeResult (manual lookup hint)
-        else result failed
-            ScraperSvc->>ScraperSvc: Store as lastFailure, continue to next provider
+        alt Success
+            Svc-->>API: ScrapeResult (success)
+        else Manual lookup required
+            Svc-->>API: ScrapeResult (lookup hint + URL)
+        else Failed
+            Svc->>Svc: Save as lastFailure, try next
         end
     end
 
-    alt No provider succeeded
-        ScraperSvc-->>API: ScrapeResult{Success=false, lastFailure details}
+    alt No provider matched
+        Svc-->>API: ScrapeResult (failure)
     end
 
-    API-->>WEBUI: 200 OK (ScrapeResult JSON)
-    WEBUI-->>User: Display product info or manual lookup hint
+    API-->>UI: 200 OK (ScrapeResult)
+    UI-->>User: Show product info or lookup hint
 ```
 
 ## Path B — Image-Based Scrape Preview
@@ -58,37 +58,39 @@ sequenceDiagram
 sequenceDiagram
     autonumber
     actor User
-    participant WEBUI as Blazor UI<br/>(RegisterImage.razor preview step)
-    participant API as ScraperController<br/>POST /api/scraper/from-image
-    participant ScanSvc as ScanService
-    participant ScraperSvc as ScraperService
-    participant Providers as IHardwareLookupProvider chain
-    participant ExtAPI as External APIs
+    participant UI as Blazor UI
+    participant API as ScraperController
+    participant Scan as ScanService
+    participant Svc as ScraperService
+    participant Pvd as HW Providers
+    participant Ext as External APIs
 
-    User->>WEBUI: Upload device image
-    WEBUI->>API: POST /api/scraper/from-image (multipart/form-data)
+    User->>UI: Upload device image
+    UI->>API: POST /api/scraper/from-image
 
-    API->>ScanSvc: ExtractSerialAsync(ScanRequest{imageStream})
-    ScanSvc-->>API: extractedCode (string)
+    API->>Scan: ExtractSerialAsync(imageStream)
+    Scan-->>API: extractedCode
 
-    API->>API: AnalyzeExtractedCode(extractedCode)
-    note right of API: Returns (CodeType, CanAttemptLookup, Message)<br/>URL → not supported<br/>All digits → "Upc", can lookup<br/>Alphanumeric → "SerialNumber", can lookup<br/>Other → "Unknown", cannot lookup
+    API->>API: AnalyzeExtractedCode(code)
+    note right of API: URL → not supported
+        All digits → Upc
+        Alphanumeric → SerialNumber
+        Other → Unknown
 
-    alt CanAttemptLookup == false
-        API-->>WEBUI: 200 OK ImageScrapePreviewResponse{CanAttemptLookup:false}
-        WEBUI-->>User: Show extracted code + reason no lookup attempted
+    alt Cannot attempt lookup
+        API-->>UI: 200 OK (CanAttemptLookup: false)
+        UI-->>User: Show code + reason
     end
 
-    API->>ScraperSvc: LookupDeviceAsync(extractedCode, codeType)
-    ScraperSvc->>Providers: (same provider chain as Path A)
-    Providers->>ExtAPI: HTTP call
-    ExtAPI-->>Providers: raw response
-    Providers-->>ScraperSvc: ScrapeResult
-    ScraperSvc-->>API: ScrapeResult
+    API->>Svc: LookupDeviceAsync(code, codeType)
+    Svc->>Pvd: Provider chain (same as Path A)
+    Pvd->>Ext: API call
+    Ext-->>Pvd: response
+    Pvd-->>Svc: ScrapeResult
+    Svc-->>API: ScrapeResult
 
-    API->>API: Map ScrapeResult → ImageScrapePreviewResponse
-    API-->>WEBUI: 200 OK ImageScrapePreviewResponse
-    WEBUI-->>User: Show preview (ProductName, Manufacturer,<br/>ModelNumber, Image, Source URL)
+    API-->>UI: 200 OK (ImageScrapePreviewResponse)
+    UI-->>User: Show preview (product, model, image, URL)
 ```
 
 ## Provider Priority Order

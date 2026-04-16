@@ -2,214 +2,212 @@
 
 This diagram shows the full internal structure of `HomeLabManager.API`:
 controllers, services, repositories, interfaces, and the scraping provider pipeline.
+The layout flows **top-to-bottom** through four architectural tiers.
 
 ```mermaid
-classDiagram
-    direction TB
+flowchart TD
+    %% ── TIER 1 · Controllers ────────────────────────────────────────────────
+    subgraph CTRL["🎮  Controllers  (HTTP entry points)"]
+        direction TB
+        DC["<b>DevicesController</b>
+        ────────────────────
+        POST /register · POST /manual
+        GET / · GET /{id} · GET /stats
+        PUT /{id} · DELETE /{id}"]
 
-    %% ── Controllers ──────────────────────────────────────────────────────────
-    class DevicesController {
-        -DeviceService deviceService
-        -ILogger~DevicesController~ logger
-        +Register(IFormFile file) IActionResult
-        +RegisterManual(ManualDeviceRegisterRequest) IActionResult
-        +GetDevices() ActionResult
-        +GetDeviceById(Guid id) ActionResult
-        +GetDeviceStats() IActionResult
-        +DeleteDevice(Guid id) IActionResult
-        +UpdateDevice(Guid id, UpdateDeviceRequest) IActionResult
-    }
+        CC["<b>ComponentsController</b>
+        ────────────────────
+        GET / · GET /{id} · POST /
+        PUT /{id} · DELETE /{id}
+        GET /type/{t} · GET /vendor/{id}"]
 
-    class ComponentsController {
-        -ComponentService componentService
-        +GetAll() ActionResult
-        +GetById(Guid id) ActionResult
-        +Create(Component) ActionResult
-        +Update(Guid id, Component) ActionResult
-        +Delete(Guid id) ActionResult
-        +GetByComponentType(string) ActionResult
-        +GetByVendor(Guid vendorId) ActionResult
-    }
+        DCC["<b>DeviceComponentsController</b>
+        ────────────────────
+        GET /device/{id} · GET /component/{id}
+        GET /{id} · POST /
+        PUT /{id} · DELETE /{id}"]
 
-    class DeviceComponentsController {
-        -DeviceComponentService deviceComponentService
-        +GetComponentsByDevice(Guid deviceId) ActionResult
-        +GetDevicesByComponent(Guid componentId) ActionResult
-        +GetById(Guid id) ActionResult
-        +AddComponentToDevice(DeviceComponent) ActionResult
-        +Update(Guid id, DeviceComponent) ActionResult
-        +RemoveComponentFromDevice(Guid id) ActionResult
-    }
+        SC["<b>ScraperController</b>
+        ────────────────────
+        POST /search
+        POST /from-image"]
 
-    class ScraperController {
-        -IScraperService scraperService
-        -ScanServiceInterface scanService
-        +Search(ScraperSearchRequest) ActionResult
-        +FromImage(IFormFile file) ActionResult
-    }
+        VC["<b>VendorsController</b>
+        ────────────────────
+        GET /
+        POST /deduplicate"]
+    end
 
-    class VendorsController {
-        -ApplicationDBContext dbContext
-        -ILogger~VendorsController~ logger
-        +GetVendors() ActionResult
-        +DeduplicateVendors() ActionResult
-    }
+    %% ── TIER 2 · Services ───────────────────────────────────────────────────
+    subgraph SVC["⚙️  Services  (Business logic)"]
+        direction TB
+        DS["<b>DeviceService</b>
+        ────────────────────
+        RegisterDeviceAsync(stream)
+        RegisterManualDeviceAsync(req)
+        GetAllDevicesAsync()
+        GetDeviceByIdAsync(id)
+        UpdateDeviceAsync(id, req)
+        DeleteDeviceByIdAsync(id)
+        GetDeviceStatsAsync()"]
 
-    %% ── Services ──────────────────────────────────────────────────────────────
-    class DeviceService {
-        -ScanServiceInterface scanService
-        -VendorLookupInterface vendorLookup
-        -DeviceRepositoryInterface deviceRepository
-        -ApplicationDBContext dbContext
-        +RegisterDeviceAsync(Stream) Task~DeviceResponseDTO~
-        +RegisterManualDeviceAsync(ManualDeviceRegisterRequest) Task~DeviceResponseDTO~
-        +GetAllDevicesAsync() Task~List~DeviceResponseDTO~~
-        +GetDeviceByIdAsync(Guid) Task~DeviceResponseDTO~
-        +UpdateDeviceAsync(Guid, UpdateDeviceRequest) Task~DeviceResponseDTO~
-        +DeleteDeviceByIdAsync(Guid) Task~bool~
-        +GetDeviceStatsAsync() Task~DeviceStatsResponse~
-    }
+        CS["<b>ComponentService</b>
+        ────────────────────
+        GetAllComponentsAsync()
+        GetComponentByIdAsync(id)
+        CreateComponentAsync(c)
+        UpdateComponentAsync(c)
+        DeleteComponentAsync(id)
+        GetComponentsByTypeAsync(t)
+        GetComponentsByVendorIdAsync(id)"]
 
-    class ComponentService {
-        -ComponentRepositoryInterface repository
-        +GetAllComponentsAsync() Task~IEnumerable~Component~~
-        +GetComponentByIdAsync(Guid) Task~Component~
-        +CreateComponentAsync(Component) Task~Component~
-        +UpdateComponentAsync(Component) Task~Component~
-        +DeleteComponentAsync(Guid) Task~bool~
-        +GetComponentsByTypeAsync(string) Task~IEnumerable~Component~~
-        +GetComponentsByVendorIdAsync(Guid) Task~IEnumerable~Component~~
-    }
+        DCS["<b>DeviceComponentService</b>
+        ────────────────────
+        GetComponentsByDeviceIdAsync(id)
+        GetDevicesByComponentIdAsync(id)
+        GetByIdAsync(id)
+        AddComponentToDeviceAsync(dc)
+        UpdateAsync(dc)
+        RemoveComponentFromDeviceAsync(id)"]
 
-    class DeviceComponentService {
-        -DeviceComponentRepositoryInterface deviceComponentRepository
-        -DeviceRepositoryInterface deviceRepository
-        -ComponentRepositoryInterface componentRepository
-        +GetComponentsByDeviceIdAsync(Guid) Task~IEnumerable~DeviceComponent~~
-        +GetDevicesByComponentIdAsync(Guid) Task~IEnumerable~DeviceComponent~~
-        +GetByIdAsync(Guid) Task~DeviceComponent~
-        +AddComponentToDeviceAsync(DeviceComponent) Task~DeviceComponent~
-        +UpdateAsync(DeviceComponent) Task~DeviceComponent~
-        +RemoveComponentFromDeviceAsync(Guid) Task~bool~
-    }
+        SS["<b>ScraperService</b>
+        ────────────────────
+        LookupDeviceAsync(query, codeType)
+        ↳ iterates IHardwareLookupProvider chain"]
+    end
 
-    class ScraperService {
-        -IEnumerable~IHardwareLookupProvider~ providers
-        +LookupDeviceAsync(string query, string codeType) Task~ScrapeResult~
-    }
+    %% ── TIER 3 · Interfaces & Repositories ─────────────────────────────────
+    subgraph REPO["🗄️  Repository Interfaces  →  Implementations"]
+        direction TB
+        DRI["«interface»
+        <b>DeviceRepositoryInterface</b>
+        ────────────────────
+        AddAsync · GetAllAsync
+        GetDeviceByIdAsync · GetForUpdateByIdAsync
+        SerialExistsAsynch · DeleteByIdAsync"]
+        DevRepo["<b>DeviceRepository</b>
+        implements ↑"]
 
-    %% ── Interfaces ────────────────────────────────────────────────────────────
-    class DeviceRepositoryInterface {
-        <<interface>>
-        +AddAsync(Device) Task
-        +GetAllAsync() Task~List~Device~~
-        +GetDeviceByIdAsync(Guid) Task~Device~
-        +GetForUpdateByIdAsync(Guid) Task~Device~
-        +SerialExistsAsynch(string) Task~bool~
-        +DeleteByIdAsync(Guid) Task~bool~
-    }
+        CRI["«interface»
+        <b>ComponentRepositoryInterface</b>
+        ────────────────────
+        GetAllAsync · GetByIdAsync
+        CreateAsync · UpdateAsync
+        DeleteAsync · GetByTypeAsync
+        GetByVendorIdAsync"]
+        CompRepo["<b>ComponentRepository</b>
+        implements ↑"]
 
-    class ComponentRepositoryInterface {
-        <<interface>>
-        +GetAllAsync() Task~IEnumerable~Component~~
-        +GetByIdAsync(Guid) Task~Component~
-        +CreateAsync(Component) Task~Component~
-        +UpdateAsync(Component) Task~Component~
-        +DeleteAsync(Guid) Task~bool~
-        +GetByTypeAsync(string) Task~IEnumerable~Component~~
-        +GetByVendorIdAsync(Guid) Task~IEnumerable~Component~~
-    }
+        DCRI["«interface»
+        <b>DeviceComponentRepositoryInterface</b>
+        ────────────────────
+        GetComponentsByDeviceIdAsync
+        GetDevicesByComponentIdAsync
+        GetByIdAsync · AddComponentToDeviceAsync
+        UpdateAsync · RemoveComponentFromDeviceAsync"]
+        DCRepo["<b>DeviceComponentRepository</b>
+        implements ↑"]
 
-    class DeviceComponentRepositoryInterface {
-        <<interface>>
-        +GetComponentsByDeviceIdAsync(Guid) Task~IEnumerable~DeviceComponent~~
-        +GetDevicesByComponentIdAsync(Guid) Task~IEnumerable~DeviceComponent~~
-        +GetByIdAsync(Guid) Task~DeviceComponent~
-        +AddComponentToDeviceAsync(DeviceComponent) Task~DeviceComponent~
-        +UpdateAsync(DeviceComponent) Task~DeviceComponent~
-        +RemoveComponentFromDeviceAsync(Guid) Task~bool~
-    }
+        SSI["«interface»
+        <b>ScanServiceInterface</b>
+        ────────────────────
+        ExtractSerialAsync(request)"]
+        ScanSvc["<b>ScanService</b>
+        implements ↑"]
 
-    class ScanServiceInterface {
-        <<interface>>
-        +ExtractSerialAsync(ScanRequest) Task~string~
-    }
+        VLI["«interface»
+        <b>VendorLookupInterface</b>
+        ────────────────────
+        GetProductBySerialAsync(serial)"]
+        FVL["<b>FakeVendorLookupTest</b>
+        implements ↑  (test only)"]
 
-    class VendorLookupInterface {
-        <<interface>>
-        +GetProductBySerialAsync(string serial) Task~Product~
-    }
+        DBC["<b>ApplicationDBContext</b>
+        (EF Core DbContext)
+        ────────────────────
+        DbSet: Devices · Products
+        Vendors · Components
+        DeviceComponents"]
+    end
 
-    class IScraperService {
-        <<interface>>
-        +LookupDeviceAsync(string query, string codeType) Task~ScrapeResult~
-    }
+    %% ── TIER 4 · Scraping Pipeline ──────────────────────────────────────────
+    subgraph SCRAPE["🔍  Scraping Pipeline"]
+        direction TB
+        ISS["«interface»
+        <b>IScraperService</b>
+        ────────────────────
+        LookupDeviceAsync(query, codeType)"]
 
-    class IHardwareLookupProvider {
-        <<interface>>
-        +CanHandle(string codeType, string? vendor) bool
-        +SearchAsync(string query, string? vendor) Task~ScrapeResult~
-    }
+        IHL["«interface»
+        <b>IHardwareLookupProvider</b>
+        ────────────────────
+        CanHandle(codeType, vendor)
+        SearchAsync(query, vendor)"]
 
-    %% ── Concrete Repositories ────────────────────────────────────────────────
-    class DeviceRepository {
-        -ApplicationDBContext dbContext
-    }
-    class ComponentRepository {
-        -ApplicationDBContext dbContext
-    }
-    class DeviceComponentRepository {
-        -ApplicationDBContext dbContext
-    }
-    class ScanService
-    class FakeVendorLookupTest
+        P1["<b>UpcLookupProvider</b>
+        handles: Upc codes"]
+        P2["<b>HpeSerialLookupProvider</b>
+        handles: SerialNumber + HPE"]
+        P3["<b>DellSerialLookupProvider</b>
+        handles: SerialNumber + Dell"]
+        P4["<b>CiscoSerialLookupProvider</b>
+        handles: SerialNumber + Cisco"]
+        P5["<b>WebSearchFallbackProvider</b>
+        handles: any SerialNumber"]
+    end
 
-    %% ── Scraping Providers ───────────────────────────────────────────────────
-    class UpcLookupProvider
-    class HpeSerialLookupProvider
-    class DellSerialLookupProvider
-    class CiscoSerialLookupProvider
-    class WebSearchFallbackProvider
+    %% ── CONNECTIONS · Controller → Service ──────────────────────────────────
+    DC -->|uses| DS
+    CC -->|uses| CS
+    DCC -->|uses| DCS
+    SC -->|uses| SS
+    SC -->|uses| SSI
+    VC -->|uses| DBC
 
-    %% ── Controller → Service wiring ─────────────────────────────────────────
-    DevicesController --> DeviceService
-    ComponentsController --> ComponentService
-    DeviceComponentsController --> DeviceComponentService
-    ScraperController --> IScraperService
-    ScraperController --> ScanServiceInterface
-    VendorsController --> ApplicationDBContext
+    %% ── CONNECTIONS · Service → Repository / Interface ──────────────────────
+    DS -->|uses| SSI
+    DS -->|uses| VLI
+    DS -->|uses| DRI
+    DS -->|uses| DBC
+    CS -->|uses| CRI
+    DCS -->|uses| DCRI
+    DCS -->|uses| DRI
+    DCS -->|uses| CRI
+    SS -->|implements| ISS
+    SS -->|iterates| IHL
 
-    %% ── Service → Interface dependencies ────────────────────────────────────
-    DeviceService --> ScanServiceInterface
-    DeviceService --> VendorLookupInterface
-    DeviceService --> DeviceRepositoryInterface
-    DeviceService --> ApplicationDBContext
+    %% ── CONNECTIONS · Interfaces → Implementations ──────────────────────────
+    DRI -.->|impl| DevRepo
+    CRI -.->|impl| CompRepo
+    DCRI -.->|impl| DCRepo
+    SSI -.->|impl| ScanSvc
+    VLI -.->|impl| FVL
 
-    ComponentService --> ComponentRepositoryInterface
+    %% ── CONNECTIONS · Providers → Interface ─────────────────────────────────
+    IHL -.->|impl| P1
+    IHL -.->|impl| P2
+    IHL -.->|impl| P3
+    IHL -.->|impl| P4
+    IHL -.->|impl| P5
 
-    DeviceComponentService --> DeviceComponentRepositoryInterface
-    DeviceComponentService --> DeviceRepositoryInterface
-    DeviceComponentService --> ComponentRepositoryInterface
+    %% ── Styles ──────────────────────────────────────────────────────────────
+    classDef controller fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f
+    classDef service    fill:#ede9fe,stroke:#8b5cf6,color:#3b0764
+    classDef repo       fill:#d1fae5,stroke:#10b981,color:#064e3b
+    classDef iface      fill:#fef9c3,stroke:#d97706,color:#78350f
+    classDef provider   fill:#fee2e2,stroke:#ef4444,color:#7f1d1d
 
-    ScraperService ..|> IScraperService
-    ScraperService --> IHardwareLookupProvider
-
-    %% ── Interface → Implementation ──────────────────────────────────────────
-    DeviceRepository ..|> DeviceRepositoryInterface
-    ComponentRepository ..|> ComponentRepositoryInterface
-    DeviceComponentRepository ..|> DeviceComponentRepositoryInterface
-    ScanService ..|> ScanServiceInterface
-    FakeVendorLookupTest ..|> VendorLookupInterface
-
-    UpcLookupProvider ..|> IHardwareLookupProvider
-    HpeSerialLookupProvider ..|> IHardwareLookupProvider
-    DellSerialLookupProvider ..|> IHardwareLookupProvider
-    CiscoSerialLookupProvider ..|> IHardwareLookupProvider
-    WebSearchFallbackProvider ..|> IHardwareLookupProvider
+    class DC,CC,DCC,SC,VC controller
+    class DS,CS,DCS,SS service
+    class DevRepo,CompRepo,DCRepo,ScanSvc,FVL,DBC repo
+    class DRI,CRI,DCRI,SSI,VLI,ISS,IHL iface
+    class P1,P2,P3,P4,P5 provider
 ```
 
 ## Notes
 
-- Fake/test implementations (`FakeVendorLookupTest`, `FakeHardwareLookupProvider`, etc.) are registered only in test projects.
-- `VendorsController` directly uses `ApplicationDBContext` because vendor deduplication requires a transactional multi-step query that doesn't benefit from an extra service layer.
-- `ScraperService` receives **all** `IHardwareLookupProvider` implementations as an `IEnumerable` via dependency injection and iterates through them in priority order.
+- **Solid arrows** (`-->`) = runtime dependency (uses / calls).
+- **Dashed arrows** (`-.->`) = implementation relationship (interface → concrete class).
+- `VendorsController` depends directly on `ApplicationDBContext` because vendor deduplication uses a multi-step transaction that is simpler without a separate service layer.
+- `ScraperService` receives **all** `IHardwareLookupProvider` implementations as an `IEnumerable` via dependency injection and tries them in priority order until one succeeds.
+- Fake/test implementations (`FakeVendorLookupTest`, etc.) are wired up only in the test project.

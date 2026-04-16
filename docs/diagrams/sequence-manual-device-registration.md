@@ -7,56 +7,56 @@ through the **Register Manually** form instead of uploading an image.
 sequenceDiagram
     autonumber
     actor User
-    participant WEBUI as Blazor UI<br/>(ManualRegister.razor)
-    participant API as DevicesController<br/>POST /api/devices/manual
-    participant DevSvc as DeviceService
-    participant DevRepo as DeviceRepository
-    participant DB as ApplicationDBContext<br/>(SQLite)
+    participant UI as Blazor UI
+    participant API as DevicesController
+    participant Svc as DeviceService
+    participant Repo as DeviceRepository
+    participant DB as SQLite / EF Core
 
-    User->>WEBUI: Fill in SerialNumber, NickName, Location,<br/>ProductName, ModelNumber, VendorName
-    User->>WEBUI: Click "Register Device"
+    User->>UI: Fill form (Serial, NickName, Location, Product, Vendor)
+    User->>UI: Click "Register Device"
 
-    WEBUI->>API: POST /api/devices/manual (JSON body: ManualDeviceRegisterRequest)
+    UI->>API: POST /api/devices/manual
 
-    API->>DevSvc: RegisterManualDeviceAsync(request)
+    API->>Svc: RegisterManualDeviceAsync(request)
 
-    DevSvc->>DevSvc: Validate at least SerialNumber or NickName present
-    alt Neither SerialNumber nor NickName provided
-        DevSvc-->>API: throw SerialNumberMissingException
-        API-->>WEBUI: 400 Bad Request
-        WEBUI-->>User: "Provide at least SerialNumber or NickName"
+    Svc->>Svc: Validate Serial or NickName present
+    alt Neither provided
+        Svc-->>API: SerialNumberMissingException
+        API-->>UI: 400 Bad Request
+        UI-->>User: "Provide at least Serial or NickName"
     end
 
-    alt SerialNumber provided
-        DevSvc->>DevRepo: SerialExistsAsync(serialNumber)
-        DevRepo-->>DevSvc: exists (bool)
+    alt Serial provided
+        Svc->>Repo: SerialExistsAsync(serial)
+        Repo-->>Svc: exists (bool)
         alt Duplicate serial
-            DevSvc-->>API: throw DuplicateSerialNumberException
-            API-->>WEBUI: 409 Conflict
-            WEBUI-->>User: "A device with the same serial number already exists."
+            Svc-->>API: DuplicateSerialNumberException
+            API-->>UI: 409 Conflict
+            UI-->>User: "Device already exists"
         end
     end
 
-    DevSvc->>DB: Vendors.FirstOrDefaultAsync(normalizedVendorName)
-    DB-->>DevSvc: existingVendor or null
+    Svc->>DB: Find Vendor by normalized name
+    DB-->>Svc: vendor row or null
 
-    alt Vendor already exists
-        DevSvc->>DevSvc: Re-use existing Vendor row
+    alt Vendor exists
+        Svc->>Svc: Re-use vendor row
     else New vendor
-        DevSvc->>DB: Vendors.AddAsync(newVendor)
+        Svc->>DB: Add new Vendor
     end
 
-    DevSvc->>DevSvc: Create Product entity<br/>(ProductName, ModelNumber, VendorId)
-    DevSvc->>DevSvc: Create Device entity<br/>(SerialNumber, NickName, Location, ProductId)
+    Svc->>Svc: Create Product entity
+    Svc->>Svc: Create Device entity
 
-    DevSvc->>DB: Products.Add(product)
-    DevSvc->>DevRepo: AddAsync(device)
-    DevSvc->>DB: SaveChangesAsync()
-    DB-->>DevSvc: (persisted)
+    Svc->>DB: Products.Add(product)
+    Svc->>Repo: AddAsync(device)
+    Svc->>DB: SaveChangesAsync()
+    DB-->>Svc: Saved
 
-    DevSvc-->>API: DeviceResponseDTO
-    API-->>WEBUI: 200 OK (DeviceResponseDTO JSON)
-    WEBUI-->>User: Show registered device details
+    Svc-->>API: DeviceResponseDTO
+    API-->>UI: 200 OK
+    UI-->>User: Show registered device details
 ```
 
 ## ManualDeviceRegisterRequest Fields
