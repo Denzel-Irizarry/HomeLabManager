@@ -338,6 +338,15 @@ OpenCover/
 # Azure Stream Analytics local run output
 ASALocalRun/
 
+# Local .NET CLI cache/sentinel artifacts (machine-specific)
+.dotnet/.dotnet/
+
+# Accidental shell-expanded folder that should never be committed
+$PWD/
+
+# VS Code launch profile is local-only for now
+.vscode/launch.json
+
 # MSBuild Binary and Structured Log
 *.binlog
 
