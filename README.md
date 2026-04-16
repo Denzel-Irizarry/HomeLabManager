@@ -1,44 +1,44 @@
 # HomeLabManager
 
-HomeLabManager is a personal project I built to help manage hardware in a home lab. The goal of the project is to keep track of devices, their vendor and product information, and the individual components installed in them. I wanted to build something practical that also helped me learn more about full-stack .NET development, API design, database access, and frontend development with Blazor.
+HomeLabManager is my personal home lab inventory app.
 
-## What This Project Does
+I built it because I wanted one place to track devices, vendor/product info, and installed components without relying on random spreadsheets. It also doubles as a real full-stack .NET project where I can keep improving architecture, API design, testing, and UI decisions as I go.
 
-This application allows me to:
+## What It Does Right Now
 
 - Register devices manually
-- Register devices by uploading an image with a barcode or QR code
-- Store device details such as serial number, nickname, and location
-- Track product and vendor information for each device
-- Create and manage a list of hardware components
-- Link components to devices
-- View device statistics from a dashboard
-- Use Swagger to test API endpoints
+- Register devices from image upload (barcode/QR workflow)
+- Store and edit device details (serial, nickname, location)
+- Track product + vendor details tied to devices
+- Manage components and link components to devices
+- View dashboard stats
+- View vendor data and deduplication results
+- Manage UI preferences from Settings (theme + density)
+- Test API endpoints in Swagger
 
-## Why I Built It
+## Current Tech Stack
 
-I created this project as a way to combine a real-world use case with the technologies I have been learning. Instead of building a generic CRUD app, I wanted to make something that felt useful to me personally. Since I have an interest in home lab environments and IT hardware, I decided to build a system that could help organize devices and components in one place.
+- .NET 10
+- ASP.NET Core Web API
+- Blazor Server (Interactive Server)
+- Entity Framework Core + SQLite
+- Swagger / OpenAPI
+- ZXing.Net + ImageSharp
+- xUnit tests for service and scraping flows
 
-This project also gave me a chance to practice:
-
-- Designing a multi-project .NET solution
-- Building REST API endpoints with ASP.NET Core
-- Using Entity Framework Core with SQLite
-- Creating a Blazor Server frontend
-- Working with dependency injection
-- Handling file uploads and image processing
-- Organizing code into layers such as entities, services, repositories, and controllers
-
-## Project Structure
+## Solution Layout
 
 ```text
 HomeLabManager/
 |-- HomeLabManager.Core/
 |   |-- Entities/
+|   |-- Scraping/
 |
 |-- HomeLabManager.API/
 |   |-- Controllers/
 |   |-- Services/
+|   |   |-- Scraping/
+|   |       |-- Providers/
 |   |-- Infrastructure/
 |   |-- Interfaces/
 |   |-- Models/
@@ -51,65 +51,102 @@ HomeLabManager/
 |   |-- Models/
 |   |-- wwwroot/
 |
+|-- HomeLabManager.API.Tests/
+|   |-- Services/
+|
+|-- docs/
+|   |-- project-structure-uml.md
+|
 |-- HomeLabManager.slnx
 ```
-### HomeLabManager.Core
-This project contains the shared entity classes used across the application. These classes represent the main data in the system.
-I used this project to keep the domain models separate from the API and frontend so the solution is easier to organize and maintain.
 
-### HomeLabManager.API
-This is the backend of the application. It is an ASP.NET Core Web API that handles requests from the frontend, applies business logic, and saves data to the database.
+## Architecture (How Requests Flow)
 
-This project includes:
-- Controllers for API endpoints
-- Services for business logic
-- Repositories for database access
-- EF Core database context
-- Request and response models
-- Database migrations
-The API also includes the image scanning workflow for uploaded files. It uses barcode/QR processing to extract a serial number and then continues the device registration process.
+1. Blazor Web UI sends request to API.
+2. API Controller receives request.
+3. Service layer handles business logic.
+4. Repository layer + DbContext handle persistence.
+5. SQLite stores final data.
 
-### HomeLabManager.WEBUI
-This is the frontend of the application built with Blazor Server. It provides the user interface for interacting with the system.
+I kept this layered on purpose so each part has one job and I can test/refactor without ripping everything apart.
 
-The frontend includes pages for:
+## Scraping/Lookup Pipeline
+
+For image-based registration and serial lookups, the API uses a provider pipeline behind interfaces.
+
+- Vendor/provider routing goes through scraper services
+- Includes vendor-specific providers (HPE, Dell, Cisco, UPC, fallback)
+- Can be tested with fake providers in unit tests
+
+This lets me expand vendor support without rewriting core registration logic.
+
+## Main Pages in Web UI
 
 - Dashboard
-- Viewing all devices
-- Manual device registration
-- Image-based registration
+- Devices
+- Manual Register
+- Register by Image
 - Components
 - Vendors
 - Settings
-The Web UI communicates with the API using HttpClient.
 
-## How The App Works
-The app follows a layered design:
+## Run It Locally
 
-1. The user interacts with the Blazor frontend.
-2. The frontend sends requests to the API.
-3. Controllers receive the request and call service classes.
-4. Services handle the business rules and workflows.
-5. Repositories and Entity Framework Core interact with the SQLite database.
-This structure helped me separate responsibilities and keep the code more organized.
+### 1) Prerequisites
 
-### Technologies Used
-- .NET 10
-- ASP.NET Core Web API
-- Blazor Server
-- Entity Framework Core(used to interact with the SQLite)
-- SQLite
-- Swagger / OpenAPI(used for testing and verifying endpoint connnections)
-- ImageSharp
-- ZXing.Net
+- .NET SDK 10
 
-### What I Learned
-Some of the main things I learned while working on this project were:
+### 2) Restore
 
-- How to separate a solution into frontend, backend, and shared model projects
-- How to build API endpoints and connect them to a UI
-- How to use Entity Framework Core for relationships and migrations
-- How dependency injection helps connect services and repositories
-- How to handle validation and exception handling in an API
-- How to upload and process files in a web application
-- How to design a project around a real use case instead of a simple tutorial example
+```bash
+dotnet restore
+```
+
+### 3) Run Everything With One Command (Recommended)
+
+If you want both API + WEBUI started together from the repo root:
+
+PowerShell (Windows):
+
+```powershell
+./run-local.ps1
+```
+
+Bash (Git Bash/WSL/macOS/Linux):
+
+```bash
+./run-local.sh
+```
+
+This starts both projects and stops both when you exit.
+
+### 4) Run API (Manual Option)
+
+```bash
+dotnet run --project HomeLabManager.API/HomeLabManager.API.csproj
+```
+
+Swagger will be available from the API host URL shown in the terminal.
+
+### 5) Run Web UI (Manual Option)
+
+```bash
+dotnet run --project HomeLabManager.WEBUI/HomeLabManager.WEBUI.csproj
+```
+
+The UI talks to the API through configured HttpClient settings in app configuration.
+
+## Run Tests
+
+```bash
+dotnet test HomeLabManager.API.Tests/HomeLabManager.API.Tests.csproj
+```
+
+## Notes
+
+- This is an actively evolving project, so I update architecture and UX as I learn.
+- The UML doc in docs captures current structure at a high level.
+
+## Why This Project Matters to Me
+
+This project is where I practice building software the way I actually want to ship it: layered, testable, and useful in real life. It is not just tutorial code. I use it to keep track of my devices.
