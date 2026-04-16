@@ -1,5 +1,9 @@
 # HomeLabManager Structural UML
 
+> **📂 Detailed diagrams** are available in [`docs/diagrams/`](diagrams/README.md).
+> The diagrams below provide a concise overview; the linked folder contains
+> fully-annotated class diagrams, sequence diagrams, and a component diagram.
+
 ## 1) Solution Component Diagram
 
 ```mermaid
