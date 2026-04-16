@@ -1,12 +1,20 @@
 ﻿
 .devices-table thead th {
-    background-color: #1f3a5f;
-    color: #ffffff;
+    background-color: var(--hlm-accent-strong);
+    color: var(--hlm-surface-solid) !important;
     vertical-align: middle;
+    border-bottom-color: color-mix(in srgb, var(--hlm-accent) 55%, var(--hlm-border));
+    font-weight: 700;
 }
 
-.sort-btn {
-    color: #ffffff;
+html[data-theme='dark'] .devices-table thead th {
+    background-color: #481620;
+    color: #f2f4cb !important;
+    border-bottom-color: rgba(242, 244, 203, 0.28);
+}
+
+.devices-table thead th .sort-btn {
+    color: var(--hlm-surface-solid) !important;
     text-decoration: none;
     font-weight: 600;
     border: none;
@@ -14,13 +22,23 @@
     padding: 0;
 }
 
-.sort-btn:hover {
-    color: grey;
+.devices-table thead th .sort-btn:hover {
+    color: color-mix(in srgb, var(--hlm-surface-solid) 80%, var(--hlm-warning-surface));
 }
 
-.sort-btn:focus {
-    color: #dbeafe;
+.devices-table thead th .sort-btn:focus {
+    color: color-mix(in srgb, var(--hlm-surface-solid) 88%, var(--hlm-warning-surface));
     text-decoration: none;
+}
+
+html[data-theme='dark'] .devices-table thead th .sort-btn,
+html[data-theme='dark'] .devices-table thead th .sort-icon {
+    color: #f2f4cb !important;
+}
+
+html[data-theme='dark'] .devices-table thead th .sort-btn:hover,
+html[data-theme='dark'] .devices-table thead th .sort-btn:focus {
+    color: color-mix(in srgb, #f2f4cb 82%, #b7990d) !important;
 }
 
 .sort-icon {

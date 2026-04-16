@@ -39,9 +39,10 @@ else
 		</div>
     </div>
 
-    <table class="table table-striped devices-table">
-        <thead>
-            <tr>
+    <div class="table-surface table-responsive">
+        <table class="table table-striped devices-table align-middle mb-0">
+            <thead>
+                <tr>
                 <th>
                     <button 
                         type="button" 
@@ -98,13 +99,13 @@ else
 						<span class=" sort-icon">@GetSortIcon("Created")</span>
                     </button>
                 </th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var d in SortedDevices)
-            {
-                <tr>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var d in SortedDevices)
+                {
+                    <tr>
                     <td>@d.SerialNumber</td>
                     <td>@d.NickName</td>
                     <td>@d.Location</td>
@@ -139,10 +140,11 @@ else
                             </button>
                         </div>
                     </td>
-                </tr>
-            }
-        </tbody>
-    </table>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
 }
 
 
@@ -154,6 +156,7 @@ else
     private List<DeviceResponseDataTransferObject> devices = [];
     private bool isLoading = true;
     private string? errorMessage;
+    private UiPreferences preferences = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -253,9 +256,12 @@ else
                 ? device.SerialNumber
                 : device.Id.ToString();
 
-        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Delete device '{label}'?");
-        if (!confirmed)
-            return;
+        if (preferences.ShowDeleteConfirmation)
+        {
+            var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Delete device '{label}'?");
+            if (!confirmed)
+                return;
+        }
 
         try
         {
@@ -281,6 +287,32 @@ else
         catch (Exception ex)
         {
             errorMessage = $"Failed to delete device: {ex.Message}";
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        await LoadPreferencesAsync();
+    }
+
+    private async Task LoadPreferencesAsync()
+    {
+        try
+        {
+            var savedPreferences = await JSRuntime.InvokeAsync<string?>("hlmTheme.getSavedPreferencesJson");
+            if (!string.IsNullOrWhiteSpace(savedPreferences))
+            {
+                preferences = System.Text.Json.JsonSerializer.Deserialize<UiPreferences>(savedPreferences) ?? new UiPreferences();
+            }
+        }
+        catch
+        {
+            preferences = new UiPreferences();
         }
     }
 

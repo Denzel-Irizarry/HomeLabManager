@@ -9,12 +9,14 @@ main {
 }
 
 .sidebar {
-    background-image: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);
+    background-image: linear-gradient(180deg, var(--hlm-sidebar-start) 0%, var(--hlm-sidebar-mid) 58%, var(--hlm-sidebar-end) 100%);
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.04);
 }
 
 .top-row {
-    background-color: #f7f7f7;
-    border-bottom: 1px solid #d6d5d5;
+    background-color: var(--hlm-toprow-bg);
+    border-bottom: 1px solid var(--hlm-toprow-border);
     justify-content: flex-end;
     height: 3.5rem;
     display: flex;
@@ -63,6 +65,7 @@ main {
         height: 100vh;
         position: sticky;
         top: 0;
+        backdrop-filter: saturate(1.1) blur(10px);
     }
 
     .top-row {

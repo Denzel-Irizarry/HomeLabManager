@@ -1,22 +1,20 @@
-﻿@page "/"
+@page "/"
+@page "/dashboard"
 @using System.Net.Http.Json
 @using HomeLabManager.WEBUI.Models
 @rendermode InteractiveServer
 @inject IHttpClientFactory HttpClientFactory
-
+@inject IJSRuntime JS
+@inject NavigationManager NavigationManager
 
 <PageTitle>HomeLab Dashboard</PageTitle>
 
-
-<div class="container py-4">@* adds centered page layout with top/bottom padding*@ 
+<div class="container py-4">
 	<h1>HomeLab Dashboard</h1>
 	<p>Manage devices, register hardware, and review inventory status.</p>
 
-	@*creates row with spacing*@
 	<div class="row g-3">
-		@*full width on small screens 2 per row on medium and 3 per row for large*@
 		<div class="col-12 col-md-6 col-xl-4">
-			@*card ui with equal height and shadow added*@
 			<div class="card h-100 shadow-sm">
 				<div class="card-body">
 					<h5 class="card-title">Device Inventory</h5>
@@ -54,9 +52,7 @@
 			</div>
 		</div>
 
-		@*full width on small screens 2 per row on medium and 3 per row for large*@
 		<div class="col-12 col-md-6 col-xl-4">
-			@*card ui with equal height and shadow added*@
 			<div class="card h-100 shadow-sm">
 				<div class="card-body">
 					<h5 class="card-title">Component Library</h5>
@@ -71,13 +67,11 @@
 					}
 					else if (!components.Any())
 					{
-						//if there are no components show a message and a button to add components
 						<p class="text-muted">No components registered yet.</p>
 						<a class="btn btn-primary mt-2" href="/components">Add Components</a>
 					}
 					else
 					{
-						//if there are components show a summary of the total and by type, then a button to view all components
 						<dl class="stats-list mb-3">
 							<dt>Total Components:</dt>
 							<dd>@components.Count</dd>
@@ -97,35 +91,20 @@
 				</div>
 			</div>
 		</div>
-
-		@*full width on small screens 2 per row on medium and 3 per row for large*@
-		@* <div class="col-12 col-md-6 col-xl-4">
-			card ui with equal height and shadow added
-			<div class="card h-100 shadow-sm">
-				<div class="card-body">
-					<h5 class="card-title">System Notes</h5>
-					<p class="card-text">API and UI are connected. Next step is a registration form page.</p>
-				</div>
-			</div>
-		</div> *@
 	</div>
-
-
-	@*closing the row*@
 </div>
-
 
 @code{
 	private DeviceStatsResponse deviceStats = new DeviceStatsResponse();
 	private string? statsErrorMessage;
+	private UiPreferences preferences = new();
 
-	private List<Component?> components;
+	private List<Component?> components = new();
 	private string? componentsErrorMessage;
 	private Dictionary<string, int> componentsByType = new Dictionary<string, int>();
 
 	protected override async Task OnInitializedAsync()
 	{
-		//load device statistics
 		try
 		{
 			var client = HttpClientFactory.CreateClient("HomeLabApi");
@@ -136,15 +115,13 @@
 			statsErrorMessage = $"Failed to load device statistics: {ex.Message}";
 		}
 
-		//load component data 
 		try
 		{
 			var client = HttpClientFactory.CreateClient("HomeLabApi");
 			components = await client.GetFromJsonAsync<List<Component?>>("api/components") ?? new List<Component?>();
 
-			if (components != null && components.Any())
+			if (components.Any())
 			{
-				//group components by type and count them
 				componentsByType = components
 					.Where(comps => comps != null && !string.IsNullOrWhiteSpace(comps.ComponentType))
 					.GroupBy(comps => comps.ComponentType)
@@ -157,5 +134,36 @@
 		}
 	}
 
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (!firstRender)
+		{
+			return;
+		}
 
+		var relativePath = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+		if (!string.IsNullOrEmpty(relativePath))
+		{
+			return;
+		}
+
+		try
+		{
+			var savedPreferences = await JS.InvokeAsync<string?>("hlmTheme.getSavedPreferencesJson");
+			if (string.IsNullOrWhiteSpace(savedPreferences))
+			{
+				return;
+			}
+
+			preferences = System.Text.Json.JsonSerializer.Deserialize<UiPreferences>(savedPreferences) ?? new UiPreferences();
+			if (!string.Equals(preferences.DefaultLandingPage, "/dashboard", StringComparison.OrdinalIgnoreCase))
+			{
+				NavigationManager.NavigateTo(preferences.DefaultLandingPage, replace: true);
+			}
+		}
+		catch
+		{
+			// Keep dashboard as the fallback landing page if preferences cannot be read.
+		}
+	}
 }

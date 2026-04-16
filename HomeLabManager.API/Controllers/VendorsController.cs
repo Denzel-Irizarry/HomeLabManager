@@ -94,5 +94,83 @@ namespace HomeLabManager.API.Controllers
                 return StatusCode(500, "An error occurred while retrieving vendors.");
             }
         }
+
+        [HttpPost("deduplicate")]
+        public async Task<ActionResult<VendorDeduplicationResponse>> DeduplicateVendors()
+        {
+            try
+            {
+                var vendors = await _dbContext.Vendors.ToListAsync();
+                var products = await _dbContext.Products.ToListAsync();
+
+                var vendorGroups = vendors
+                    .GroupBy(vendor => NormalizeVendorName(vendor.VendorName))
+                    .Where(group => group.Count() > 1)
+                    .ToList();
+
+                var result = new VendorDeduplicationResponse
+                {
+                    DuplicateGroupsFound = vendorGroups.Count
+                };
+
+                if (vendorGroups.Count == 0)
+                {
+                    return Ok(result);
+                }
+
+                await using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+                foreach (var group in vendorGroups)
+                {
+                    var orderedGroup = group.OrderBy(vendor => vendor.Id).ToList();
+                    var canonicalVendor = orderedGroup[0];
+                    var duplicateVendors = orderedGroup.Skip(1).ToList();
+
+                    if (string.IsNullOrWhiteSpace(canonicalVendor.VendorBaseUrl))
+                    {
+                        var bestUrl = duplicateVendors
+                            .Select(vendor => vendor.VendorBaseUrl)
+                            .FirstOrDefault(url => !string.IsNullOrWhiteSpace(url));
+
+                        if (!string.IsNullOrWhiteSpace(bestUrl))
+                        {
+                            canonicalVendor.VendorBaseUrl = bestUrl;
+                            result.CanonicalUrlsUpdated++;
+                        }
+                    }
+
+                    var duplicateIds = duplicateVendors.Select(vendor => vendor.Id).ToHashSet();
+
+                    foreach (var product in products.Where(product => duplicateIds.Contains(product.VendorId)))
+                    {
+                        product.VendorId = canonicalVendor.Id;
+                        result.ProductReferencesUpdated++;
+                    }
+
+                    _dbContext.Vendors.RemoveRange(duplicateVendors);
+                    result.VendorsRemoved += duplicateVendors.Count;
+                }
+
+                await _dbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while deduplicating vendors.");
+                return StatusCode(500, "An error occurred while deduplicating vendors.");
+            }
+        }
+
+        private static string NormalizeVendorName(string? vendorName)
+        {
+            if (string.IsNullOrWhiteSpace(vendorName))
+            {
+                return "UNKNOWN VENDOR";
+            }
+
+            return vendorName.Trim().ToUpperInvariant();
+        }
     }
 }
