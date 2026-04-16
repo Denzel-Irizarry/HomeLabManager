@@ -5,6 +5,330 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
+    <script>
+        (function () {
+            const storageKey = "hlm.ui.preferences";
+            const root = document.documentElement;
+            const themeVariables = {
+                light: {
+                    "--hlm-page-bg": "radial-gradient(circle at top left, #f2f4cb 0%, #e7efc1 45%, #d8e4c0 100%)",
+                    "--hlm-surface": "rgba(255, 255, 248, 0.98)",
+                    "--hlm-surface-solid": "#fffef6",
+                    "--hlm-surface-alt": "rgba(165, 208, 168, 0.22)",
+                    "--hlm-border": "rgba(96, 70, 59, 0.34)",
+                    "--hlm-text": "#110b11",
+                    "--hlm-muted": "#60463b",
+                    "--hlm-accent": "#481620",
+                    "--hlm-accent-strong": "#813405",
+                    "--hlm-accent-soft": "rgba(129, 52, 5, 0.24)",
+                    "--hlm-warning-surface": "rgba(183, 153, 13, 0.2)",
+                    "--hlm-settings-chip-bg": "rgba(140, 173, 167, 0.24)",
+                    "--hlm-settings-chip-text": "#481620",
+                    "--hlm-sidebar-start": "#60463b",
+                    "--hlm-sidebar-mid": "#481620",
+                    "--hlm-sidebar-end": "#110b11",
+                    "--hlm-toprow-bg": "rgba(242, 244, 203, 0.9)",
+                    "--hlm-toprow-border": "rgba(96, 70, 59, 0.24)",
+                    "--bs-body-bg": "#fffef6",
+                    "--bs-body-color": "#110b11",
+                    "--bs-secondary-color": "#60463b",
+                    "--bs-tertiary-color": "#60463b",
+                    "--bs-emphasis-color": "#110b11",
+                    "--bs-heading-color": "#110b11",
+                    "--bs-border-color": "rgba(96, 70, 59, 0.34)",
+                    "--bs-card-bg": "#fffef6",
+                    "--bs-card-color": "#110b11"
+                },
+                dark: {
+                    "--hlm-page-bg": "radial-gradient(circle at top left, #1b1418 0%, #110b11 52%, #24100c 100%)",
+                    "--hlm-surface": "rgba(24, 18, 21, 0.96)",
+                    "--hlm-surface-solid": "#1a1215",
+                    "--hlm-surface-alt": "rgba(96, 70, 59, 0.2)",
+                    "--hlm-border": "rgba(242, 244, 203, 0.18)",
+                    "--hlm-text": "#f2f4cb",
+                    "--hlm-muted": "#d8ccb8",
+                    "--hlm-accent": "#b7990d",
+                    "--hlm-accent-strong": "#813405",
+                    "--hlm-accent-soft": "rgba(183, 153, 13, 0.3)",
+                    "--hlm-warning-surface": "rgba(183, 153, 13, 0.2)",
+                    "--hlm-settings-chip-bg": "rgba(96, 70, 59, 0.32)",
+                    "--hlm-settings-chip-text": "#f2f4cb",
+                    "--hlm-sidebar-start": "#60463b",
+                    "--hlm-sidebar-mid": "#481620",
+                    "--hlm-sidebar-end": "#110b11",
+                    "--hlm-toprow-bg": "rgba(24, 18, 21, 0.92)",
+                    "--hlm-toprow-border": "rgba(242, 244, 203, 0.18)",
+                    "--bs-body-bg": "#110b11",
+                    "--bs-body-color": "#f2f4cb",
+                    "--bs-secondary-color": "#d8ccb8",
+                    "--bs-tertiary-color": "#d8ccb8",
+                    "--bs-emphasis-color": "#f2f4cb",
+                    "--bs-heading-color": "#f2f4cb",
+                    "--bs-border-color": "rgba(242, 244, 203, 0.18)",
+                    "--bs-card-bg": "#1a1215",
+                    "--bs-card-color": "#f2f4cb"
+                }
+            };
+            const densityVariables = {
+                compact: {
+                    "--hlm-card-padding-y": "0.9rem",
+                    "--hlm-card-padding-x": "1rem",
+                    "--hlm-section-gap": "0.75rem"
+                },
+                comfortable: {
+                    "--hlm-card-padding-y": "1.25rem",
+                    "--hlm-card-padding-x": "1.25rem",
+                    "--hlm-section-gap": "1rem"
+                },
+                spacious: {
+                    "--hlm-card-padding-y": "1.5rem",
+                    "--hlm-card-padding-x": "1.5rem",
+                    "--hlm-section-gap": "1.25rem"
+                }
+            };
+
+            function getCookieValue(name) {
+                const encodedName = `${name}=`;
+                const cookieParts = document.cookie ? document.cookie.split(";") : [];
+
+                for (let i = 0; i < cookieParts.length; i++) {
+                    const trimmed = cookieParts[i].trim();
+                    if (trimmed.indexOf(encodedName) === 0) {
+                        return decodeURIComponent(trimmed.substring(encodedName.length));
+                    }
+                }
+
+                return null;
+            }
+
+            // Read from localStorage first, then sessionStorage, then a cookie fallback.
+            // The theme system uses all three so the saved preference survives more browser
+            // environments than localStorage alone.
+            function getRawPreferences() {
+                try {
+                    const fromLocal = window.localStorage.getItem(storageKey);
+                    if (fromLocal) {
+                        return fromLocal;
+                    }
+                } catch {
+                    // Ignore local storage read failures.
+                }
+
+                try {
+                    const fromSession = window.sessionStorage.getItem(storageKey);
+                    if (fromSession) {
+                        return fromSession;
+                    }
+                } catch {
+                    // Ignore session storage read failures.
+                }
+
+                return getCookieValue(storageKey);
+            }
+
+            // Convert the saved preference into the actual theme that should be rendered.
+            // "System" is resolved immediately to either "dark" or "light" based on the
+            // user's current OS/browser preference.
+            function resolveTheme(themeValue) {
+                const normalized = (themeValue || "Light").toString().trim().toLowerCase();
+
+                if (normalized === "dark") {
+                    return "dark";
+                }
+
+                if (normalized === "system") {
+                    return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
+                        ? "dark"
+                        : "light";
+                }
+
+                return "light";
+            }
+
+            function resolveDensity(densityValue) {
+                const normalized = (densityValue || "Comfortable").toString().trim().toLowerCase();
+                return normalized === "compact" || normalized === "spacious"
+                    ? normalized
+                    : "comfortable";
+            }
+
+            // Apply theme values directly onto the <html> element as inline CSS variables.
+            // This is more reliable than depending only on stylesheet selectors during
+            // Blazor enhanced navigation, because later renders can otherwise briefly leave
+            // the app in the default light state.
+            function applyThemeVariables(themeValue) {
+                const selectedTheme = themeVariables[themeValue] || themeVariables.light;
+
+                Object.entries(selectedTheme).forEach(([name, value]) => {
+                    root.style.setProperty(name, value);
+                });
+
+                root.style.colorScheme = themeValue;
+            }
+
+            // Density is handled the same way as theme: write the resolved values directly
+            // to the root element so every page render sees the same spacing variables.
+            function applyDensityVariables(densityValue) {
+                const selectedDensity = densityVariables[densityValue] || densityVariables.comfortable;
+
+                Object.entries(selectedDensity).forEach(([name, value]) => {
+                    root.style.setProperty(name, value);
+                });
+            }
+
+            // Persist the full preferences payload everywhere we support so the app shell,
+            // settings page, and later renders all read from the same source of truth.
+            function persistPreferencesJson(preferencesJson) {
+                if (!preferencesJson) {
+                    return;
+                }
+
+                try {
+                    JSON.parse(preferencesJson);
+
+                    try {
+                        window.localStorage.setItem(storageKey, preferencesJson);
+                    } catch {
+                    }
+
+                    try {
+                        window.sessionStorage.setItem(storageKey, preferencesJson);
+                    } catch {
+                    }
+
+                    const encodedValue = encodeURIComponent(preferencesJson);
+                    document.cookie = `${storageKey}=${encodedValue}; path=/; max-age=31536000; SameSite=Lax`;
+                } catch {
+                }
+            }
+
+            // Update just theme/density while preserving the rest of the saved preferences.
+            // This is used for live preview changes from Settings without wiping other values.
+            function persistThemeDensity(theme, density) {
+                try {
+                    const existingRaw = getRawPreferences();
+                    const existing = existingRaw ? JSON.parse(existingRaw) : {};
+                    existing.Theme = theme || existing.Theme || "Light";
+                    existing.CardDensity = density || existing.CardDensity || "Comfortable";
+                    persistPreferencesJson(JSON.stringify(existing));
+                } catch {
+                }
+            }
+
+            // This is the core apply function for the whole app:
+            // 1. Resolve the requested theme/density into concrete values.
+            // 2. Stamp those values onto the <html> dataset so CSS selectors can react.
+            // 3. Write the actual CSS variables inline so navigation/render timing can't
+            //    leave the UI stuck in the fallback light palette.
+            function applyResolved(theme, density) {
+                const resolvedTheme = resolveTheme(theme);
+                const resolvedDensity = resolveDensity(density);
+                root.dataset.theme = resolvedTheme;
+                root.dataset.density = resolvedDensity;
+                applyThemeVariables(resolvedTheme);
+                applyDensityVariables(resolvedDensity);
+            }
+
+            // Rebuild the UI state from the saved preferences payload.
+            // If parsing fails or nothing is saved, the app falls back to Light/Comfortable.
+            function applySavedPreferences() {
+                try {
+                    const raw = getRawPreferences();
+                    if (!raw) {
+                        applyResolved("Light", "Comfortable");
+                        return;
+                    }
+
+                    const parsed = JSON.parse(raw);
+                    applyResolved(parsed && parsed.Theme, parsed && parsed.CardDensity);
+                } catch {
+                    applyResolved("Light", "Comfortable");
+                }
+            }
+
+            // Blazor Server can render in multiple phases:
+            // - initial HTML
+            // - interactive hydration
+            // - enhanced navigation content swaps
+            // - later component rerenders
+            //
+            // A single theme apply can run too early and get visually overwritten by a later
+            // DOM update. This scheduler reapplies across a few paint ticks and short delays
+            // so the final settled DOM keeps the saved theme.
+            function scheduleApplySavedPreferences() {
+                applySavedPreferences();
+
+                if (typeof window.requestAnimationFrame === "function") {
+                    window.requestAnimationFrame(() => applySavedPreferences());
+                    window.requestAnimationFrame(() => {
+                        window.requestAnimationFrame(() => applySavedPreferences());
+                    });
+                }
+
+                window.setTimeout(() => applySavedPreferences(), 0);
+                window.setTimeout(() => applySavedPreferences(), 50);
+                window.setTimeout(() => applySavedPreferences(), 200);
+            }
+
+            // Expose a small global API because Settings.razor and MainLayout.razor need
+            // to trigger theme application from Blazor. Keeping the API here ensures the
+            // browser-side behavior is defined before any page components run.
+            window.hlmTheme = {
+                apply(theme, density) {
+                    applyResolved(theme, density);
+                },
+                saveAndApply(theme, density) {
+                    persistThemeDensity(theme, density);
+                    applyResolved(theme, density);
+                },
+                savePreferencesJson(preferencesJson) {
+                    persistPreferencesJson(preferencesJson);
+                },
+                getSavedPreferencesJson() {
+                    return getRawPreferences();
+                },
+                applySaved() {
+                    scheduleApplySavedPreferences();
+                }
+            };
+
+            try {
+                const raw = getRawPreferences();
+                if (!raw) {
+                    applyResolved("Light", "Comfortable");
+                    return;
+                }
+
+                const parsed = JSON.parse(raw);
+                applyResolved(parsed && parsed.Theme, parsed && parsed.CardDensity);
+            } catch {
+                applyResolved("Light", "Comfortable");
+            }
+
+            // Reapply after the main document lifecycle events and after Blazor enhanced
+            // navigation swaps page content without a full reload.
+            document.addEventListener("DOMContentLoaded", scheduleApplySavedPreferences);
+            document.addEventListener("enhancedload", scheduleApplySavedPreferences);
+            window.addEventListener("pageshow", scheduleApplySavedPreferences);
+            window.addEventListener("load", scheduleApplySavedPreferences);
+
+            // Enhanced navigation swaps body content without a full page reload.
+            // Observe those mutations and reapply the saved theme after the swap.
+            const observer = new MutationObserver(() => {
+                scheduleApplySavedPreferences();
+            });
+
+            if (document.body) {
+                observer.observe(document.body, { childList: true, subtree: true });
+            } else {
+                document.addEventListener("DOMContentLoaded", () => {
+                    if (document.body) {
+                        observer.observe(document.body, { childList: true, subtree: true });
+                    }
+                });
+            }
+        })();
+    </script>
     <ResourcePreloader />
     <link rel="stylesheet" href="@Assets["lib/bootstrap/dist/css/bootstrap.min.css"]" />
     <link rel="stylesheet" href="@Assets["app.css"]" />
@@ -17,7 +341,7 @@
 <body>
     <Routes />
     <ReconnectModal />
-	<script src="/registerImage.js"></script>
+	<script src="@Assets["registerImagePage.js"]"></script>
     <script src="@Assets["_framework/blazor.web.js"]"></script>
 </body>
 

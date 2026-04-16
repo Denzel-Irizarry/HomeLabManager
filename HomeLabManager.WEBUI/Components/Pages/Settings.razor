@@ -1,8 +1,267 @@
 @page "/settings"
+@using System.Net.Http.Json
+@using HomeLabManager.WEBUI.Models
+@rendermode InteractiveServer
+@inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JS
 
 <PageTitle>Settings</PageTitle>
 
-<div class="container py-4">
-	<h1>Settings</h1>
-	<p class="text-muted">Configure application settings and preferences.</p>
+<div class="container py-4 settings-page">
+	<div class="settings-hero">
+		<div>
+			<h1 class="mb-1">Settings</h1>
+			<p class="text-muted mb-0">Configure UI preferences and maintenance tools.</p>
+		</div>
+		<div class="settings-hero__badges">
+			<span class="settings-chip">Local browser storage</span>
+			<span class="settings-chip">Live theme preview</span>
+			<span class="settings-chip">Maintenance tools</span>
+		</div>
+	</div>
+
+	<div class="settings-theme-preview mb-4">
+		<div class="settings-theme-preview__bar">
+			<span class="settings-theme-preview__dot"></span>
+			<span class="settings-theme-preview__dot"></span>
+			<span class="settings-theme-preview__dot"></span>
+		</div>
+		<div class="settings-theme-preview__swatch">
+			<div class="settings-theme-preview__tile">
+				<strong>@preferences.Theme</strong>
+				<span>Selected theme</span>
+			</div>
+			<div class="settings-theme-preview__tile">
+				<strong>@preferences.CardDensity</strong>
+				<span>Card density</span>
+			</div>
+			<div class="settings-theme-preview__tile">
+				<strong>@preferences.TablePageSize</strong>
+				<span>Rows per table page</span>
+			</div>
+			<div class="settings-theme-preview__tile">
+				<strong>@FriendlyLandingPage(preferences.DefaultLandingPage)</strong>
+				<span>Default landing page</span>
+			</div>
+		</div>
+	</div>
+
+	<div class="row g-4 mt-1">
+		<div class="col-12 col-lg-7">
+			<div class="card shadow-sm">
+				<div class="card-body">
+					<h5 class="card-title">UI Preferences</h5>
+					<p class="text-muted mb-3">Saved to this browser only.</p>
+
+					@if (!string.IsNullOrWhiteSpace(preferencesMessage))
+					{
+						<div class="alert alert-success py-2" role="alert">@preferencesMessage</div>
+					}
+
+					<div class="mb-3">
+						<label class="form-label">Theme</label>
+						<select id="hlm-theme-select" class="form-select" @bind="preferences.Theme" @bind:after="OnThemeChangedAsync">
+							<option>Light</option>
+							<option>Dark</option>
+							<option>System</option>
+						</select>
+					</div>
+
+					<div class="mb-3">
+						<label class="form-label">Card Density</label>
+						<select id="hlm-density-select" class="form-select" @bind="preferences.CardDensity" @bind:after="OnCardDensityChangedAsync">
+							<option>Compact</option>
+							<option>Comfortable</option>
+							<option>Spacious</option>
+						</select>
+					</div>
+
+					<div class="mb-3">
+						<label class="form-label">Default Table Page Size</label>
+						<select class="form-select" @bind="preferences.TablePageSize">
+							<option value="10">10</option>
+							<option value="25">25</option>
+							<option value="50">50</option>
+							<option value="100">100</option>
+						</select>
+					</div>
+
+					<div class="mb-3">
+						<label class="form-label">Default Landing Page</label>
+						<select class="form-select" @bind="preferences.DefaultLandingPage">
+							<option value="/dashboard">Dashboard</option>
+							<option value="/devices">All Devices</option>
+							<option value="/register-image">Register Image</option>
+						</select>
+					</div>
+
+					<div class="form-check mb-3">
+						<input class="form-check-input" type="checkbox" id="compactHeaders" @bind="preferences.CompactHeaders" />
+						<label class="form-check-label" for="compactHeaders">Use compact table headers</label>
+					</div>
+
+					<div class="form-check mb-3">
+						<input class="form-check-input" type="checkbox" id="showDeleteConfirmation" @bind="preferences.ShowDeleteConfirmation" />
+						<label class="form-check-label" for="showDeleteConfirmation">Ask for confirmation before deleting a device</label>
+					</div>
+
+					<div class="form-check mb-3">
+						<input class="form-check-input" type="checkbox" id="clearRegisterImageAfterSave" @bind="preferences.ClearRegisterImageAfterSave" />
+						<label class="form-check-label" for="clearRegisterImageAfterSave">Clear the register-image form after a successful save</label>
+					</div>
+
+					<div class="d-flex gap-2 flex-wrap">
+						<button class="btn btn-primary" @onclick="SavePreferencesAsync">Save Preferences</button>
+						<button class="btn btn-outline-secondary" @onclick="ResetPreferencesAsync">Reset to Defaults</button>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="col-12 col-lg-5">
+			<div class="card shadow-sm settings-maintenance-note">
+				<div class="card-body">
+					<h5 class="card-title">Data Maintenance</h5>
+					<p class="text-muted">Run safe cleanup operations from the UI.</p>
+
+					@if (!string.IsNullOrWhiteSpace(maintenanceError))
+					{
+						<div class="alert alert-danger py-2" role="alert">@maintenanceError</div>
+					}
+
+					<button class="btn btn-warning"
+							@onclick="RunVendorDedupAsync"
+							disabled="@isMaintenanceRunning">
+						@(isMaintenanceRunning ? "Running..." : "Run Vendor Dedup Cleanup")
+					</button>
+
+					@if (dedupResult != null)
+					{
+						<div class="mt-3 border rounded p-3 settings-result-panel">
+							<h6 class="mb-2">Last Run Result</h6>
+							<div>Duplicate Groups Found: <strong>@dedupResult.DuplicateGroupsFound</strong></div>
+							<div>Vendors Removed: <strong>@dedupResult.VendorsRemoved</strong></div>
+							<div>Product References Updated: <strong>@dedupResult.ProductReferencesUpdated</strong></div>
+							<div>Canonical URLs Updated: <strong>@dedupResult.CanonicalUrlsUpdated</strong></div>
+						</div>
+					}
+				</div>
+			</div>
+		</div>
+	</div>
 </div>
+
+@code {
+	private const string PreferencesStorageKey = "hlm.ui.preferences";
+
+	private UiPreferences preferences = new();
+	private string? preferencesMessage;
+
+	private bool isMaintenanceRunning;
+	private string? maintenanceError;
+	private VendorDeduplicationResponse? dedupResult;
+
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (!firstRender)
+		{
+			return;
+		}
+
+		try
+		{
+			var savedPreferences = await JS.InvokeAsync<string?>("localStorage.getItem", PreferencesStorageKey);
+			if (!string.IsNullOrWhiteSpace(savedPreferences))
+			{
+				var parsed = System.Text.Json.JsonSerializer.Deserialize<UiPreferences>(savedPreferences);
+				if (parsed != null)
+				{
+					preferences = parsed;
+					await ApplyThemePreviewAsync();
+					StateHasChanged();
+					return;
+				}
+			}
+
+			await ApplyThemePreviewAsync();
+		}
+		catch
+		{
+			// If local storage is unavailable, keep defaults and avoid blocking the page.
+		}
+	}
+
+	private async Task ApplyThemePreviewAsync()
+	{
+		await JS.InvokeVoidAsync("hlmTheme.apply", preferences.Theme, preferences.CardDensity);
+	}
+
+	private async Task OnThemeChangedAsync()
+	{
+		await JS.InvokeVoidAsync("hlmTheme.saveAndApply", preferences.Theme, preferences.CardDensity);
+		await PersistPreferencesAsync();
+	}
+
+	private async Task OnCardDensityChangedAsync()
+	{
+		await JS.InvokeVoidAsync("hlmTheme.saveAndApply", preferences.Theme, preferences.CardDensity);
+		await PersistPreferencesAsync();
+	}
+
+	private async Task SavePreferencesAsync()
+	{
+		await PersistPreferencesAsync();
+		await ApplyThemePreviewAsync();
+		preferencesMessage = "Preferences saved for this browser.";
+	}
+
+	private async Task PersistPreferencesAsync()
+	{
+		var payload = System.Text.Json.JsonSerializer.Serialize(preferences);
+		await JS.InvokeVoidAsync("hlmTheme.savePreferencesJson", payload);
+	}
+
+	private async Task ResetPreferencesAsync()
+	{
+		preferences = new UiPreferences();
+		await SavePreferencesAsync();
+	}
+
+	private async Task RunVendorDedupAsync()
+	{
+		isMaintenanceRunning = true;
+		maintenanceError = null;
+
+		try
+		{
+			var client = HttpClientFactory.CreateClient("HomeLabApi");
+			var response = await client.PostAsync("api/vendors/deduplicate", null);
+
+			if (!response.IsSuccessStatusCode)
+			{
+				throw new InvalidOperationException("Vendor dedup cleanup failed.");
+			}
+
+			dedupResult = await response.Content.ReadFromJsonAsync<VendorDeduplicationResponse>()
+				?? new VendorDeduplicationResponse();
+		}
+		catch (Exception ex)
+		{
+			maintenanceError = $"Could not run vendor dedup cleanup: {ex.Message}";
+		}
+		finally
+		{
+			isMaintenanceRunning = false;
+		}
+	}
+
+	private static string FriendlyLandingPage(string value)
+	{
+		return value switch
+		{
+			"/devices" => "All Devices",
+			"/register-image" => "Register Image",
+			_ => "Dashboard"
+		};
+	}
+}

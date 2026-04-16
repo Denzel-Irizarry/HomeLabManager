@@ -4,6 +4,7 @@
 @using Microsoft.AspNetCore.Components.Forms
 @using System.Net.Http.Json
 @using HomeLabManager.WEBUI.Models
+@inject IJSRuntime JS
 @rendermode InteractiveServer
 
 <PageTitle>Register By Image</PageTitle>
@@ -12,7 +13,7 @@
     <h1>Register by Image</h1>
     <p class="text-muted">Upload a barcode or QR image to register a device.</p>
 
-    <div class="card mb-4">
+    <div class="card mb-4 register-image-lookup">
         <div class="card-body">
             <h2 class="h5">Lookup by Serial / Service Tag</h2>
             <p class="text-muted mb-3">Use this to test vendor lookup directly (for example, Dell service tags).</p>
@@ -195,6 +196,7 @@
     private int fileInputKey;
     private bool isSerialLookupInProgress;
     private string serialLookupQuery = string.Empty;
+    private UiPreferences preferences = new();
     
     //private string? extractedCode;
     private ImageScrapePreviewResponse? previewResult;
@@ -209,6 +211,16 @@
         isError = false;
         previewResult = null;
         reviewModel = new ReviewModel();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        await LoadPreferencesAsync();
     }
 
     private async Task HandleSerialLookupAsync()
@@ -435,10 +447,14 @@
 
             if (response.IsSuccessStatusCode)
             {
-                ResetFormState(clearStatusMessage: false);
                 statusMessage = "Device added successfully.";
                 isError = false;
                 showDevicesLink = true;
+
+                if (preferences.ClearRegisterImageAfterSave)
+                {
+                    ResetFormState(clearStatusMessage: false);
+                }
             }
             else if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
             {
@@ -543,5 +559,21 @@
             "failed_validation" => "Validation Failed",
             _ => string.IsNullOrWhiteSpace(status) ? "Unknown" : status
         };
+    }
+
+    private async Task LoadPreferencesAsync()
+    {
+        try
+        {
+            var savedPreferences = await JS.InvokeAsync<string?>("hlmTheme.getSavedPreferencesJson");
+            if (!string.IsNullOrWhiteSpace(savedPreferences))
+            {
+                preferences = System.Text.Json.JsonSerializer.Deserialize<UiPreferences>(savedPreferences) ?? new UiPreferences();
+            }
+        }
+        catch
+        {
+            preferences = new UiPreferences();
+        }
     }
 }

@@ -1,4 +1,7 @@
 ﻿@inherits LayoutComponentBase
+@implements IDisposable
+@inject IJSRuntime JS
+@inject NavigationManager NavigationManager
 
 <div class="page">
     <div class="sidebar">
@@ -24,3 +27,45 @@
     <a href="." class="reload">Reload</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        // Theme application is partly browser-driven, so listen for route changes and ask
+        // the browser helper to reapply the saved theme after navigation.
+        NavigationManager.LocationChanged += OnLocationChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        try
+        {
+            // Keep a layout-level apply here as a defensive fallback in case a render
+            // cycle completes after navigation but before browser-side listeners run.
+            await JS.InvokeVoidAsync("hlmTheme.applySaved");
+        }
+        catch
+        {
+            // Ignore transient JS interop failures during reconnect/render races.
+        }
+    }
+
+    private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        try
+        {
+            // LocationChanged can fire before the page visually settles, but keeping this
+            // call here gives navigation one more chance to restore the saved theme.
+            await JS.InvokeVoidAsync("hlmTheme.applySaved");
+        }
+        catch
+        {
+            // Ignore transient JS interop failures during reconnect/navigation races.
+        }
+    }
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= OnLocationChanged;
+    }
+}
