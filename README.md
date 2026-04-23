@@ -2,7 +2,9 @@
 
 HomeLabManager is my personal home lab inventory app.
 
-I built it because I wanted one place to track devices, vendor/product info, and installed components without relying on random spreadsheets. It also doubles as a real full-stack .NET project where I can keep improving architecture, API design, testing, and UI decisions as I go.
+## Why This Project Matters to Me
+
+This project is where I practice building software the way I actually want to ship it: layered, testable, and useful in real life. It is not just tutorial code. I use it to keep track of my devices without relying on random spreadsheets. It also doubles as a real full-stack .NET project where I can keep improving architecture, API design, testing, and UI decisions as I go.
 
 ## What It Does Right Now
 
@@ -147,6 +149,4 @@ dotnet test HomeLabManager.API.Tests/HomeLabManager.API.Tests.csproj
 - This is an actively evolving project, so I update architecture and UX as I learn.
 - The UML doc in docs captures current structure at a high level.
 
-## Why This Project Matters to Me
 
-This project is where I practice building software the way I actually want to ship it: layered, testable, and useful in real life. It is not just tutorial code. I use it to keep track of my devices.
