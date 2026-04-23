@@ -58,81 +58,74 @@ classDiagram
 ## 2) API Layer Structure
 
 ```mermaid
-classDiagram
-    direction TB
+flowchart TD
+    subgraph CTRL["🎮  Controllers"]
+        direction TB
+        DC["DevicesController"]
+        CC["ComponentsController"]
+        DCC["DeviceComponentsController"]
+        SC["ScraperController"]
+        VC["VendorsController"]
+    end
 
-    class DevicesController
-    class ComponentsController
-    class DeviceComponentsController
-    class ScraperController
-    class VendorsController
+    subgraph SVC["⚙️  Services"]
+        direction TB
+        DS["DeviceService"]
+        CS["ComponentService"]
+        DCS["DeviceComponentService"]
+        SS["ScraperService"]
+    end
 
-    class DeviceService
-    class ComponentService
-    class DeviceComponentService
-    class ScraperService
+    subgraph REPO["🗄️  Repository Interfaces  →  Implementations"]
+        direction TB
+        DRI["«interface» DeviceRepositoryInterface"] -.->|impl| DevRepo["DeviceRepository"]
+        CRI["«interface» ComponentRepositoryInterface"] -.->|impl| CompRepo["ComponentRepository"]
+        DCRI["«interface» DeviceComponentRepositoryInterface"] -.->|impl| DCRepo["DeviceComponentRepository"]
+        SSI["«interface» ScanServiceInterface"] -.->|impl| ScanSvc["ScanService"]
+        VLI["«interface» VendorLookupInterface"] -.->|impl| FVL["FakeVendorLookupTest (test only)"]
+        DBC["ApplicationDBContext (EF Core)"]
+    end
 
-    class ApplicationDBContext
+    subgraph SCRAPE["🔍  Scraping Pipeline"]
+        direction TB
+        ISS["«interface» IScraperService"] -.->|impl| SS2["ScraperService"]
+        IHL["«interface» IHardwareLookupProvider"]
+        IHL -.->|impl| P1["UpcLookupProvider"]
+        IHL -.->|impl| P2["HpeSerialLookupProvider"]
+        IHL -.->|impl| P3["DellSerialLookupProvider"]
+        IHL -.->|impl| P4["CiscoSerialLookupProvider"]
+        IHL -.->|impl| P5["WebSearchFallbackProvider"]
+    end
 
-    class DeviceRepositoryInterface
-    class ComponentRepositoryInterface
-    class DeviceComponentRepositoryInterface
-    class VendorLookupInterface
-    class ScanServiceInterface
-    class IScraperService
-    class IHardwareLookupProvider
+    DC --> DS
+    CC --> CS
+    DCC --> DCS
+    SC --> ISS
+    SC --> SSI
+    VC --> DBC
 
-    class DeviceRepository
-    class ComponentRepository
-    class DeviceComponentRepository
-    class ScanService
-    class FakeVendorLookupTest
+    DS --> SSI
+    DS --> VLI
+    DS --> DRI
+    DS --> DBC
+    CS --> CRI
+    DCS --> DCRI
+    DCS --> DRI
+    DCS --> CRI
+    SS --> ISS
+    SS --> IHL
 
-    class UpcLookupProvider
-    class HpeSerialLookupProvider
-    class DellSerialLookupProvider
-    class CiscoSerialLookupProvider
-    class WebSearchFallbackProvider
-    class FakeHardwareLookupProvider
-    class FakeHpeSerialLookupProvider
-    class FakeCiscoSerialLookupProvider
-    class FakeSerialLookupProvider
+    classDef controller fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f
+    classDef service    fill:#ede9fe,stroke:#8b5cf6,color:#3b0764
+    classDef repo       fill:#d1fae5,stroke:#10b981,color:#064e3b
+    classDef iface      fill:#fef9c3,stroke:#d97706,color:#78350f
+    classDef provider   fill:#fee2e2,stroke:#ef4444,color:#7f1d1d
 
-    DevicesController --> DeviceService
-    ComponentsController --> ComponentService
-    DeviceComponentsController --> DeviceComponentService
-    ScraperController --> IScraperService
-    ScraperController --> ScanServiceInterface
-    VendorsController --> ApplicationDBContext
-
-    DeviceService --> ScanServiceInterface
-    DeviceService --> VendorLookupInterface
-    DeviceService --> DeviceRepositoryInterface
-    DeviceService --> ApplicationDBContext
-
-    ComponentService --> ComponentRepositoryInterface
-    DeviceComponentService --> DeviceComponentRepositoryInterface
-    DeviceComponentService --> DeviceRepositoryInterface
-    DeviceComponentService --> ComponentRepositoryInterface
-
-    ScraperService ..|> IScraperService
-    ScraperService --> IHardwareLookupProvider : IEnumerable
-
-    DeviceRepository ..|> DeviceRepositoryInterface
-    ComponentRepository ..|> ComponentRepositoryInterface
-    DeviceComponentRepository ..|> DeviceComponentRepositoryInterface
-    ScanService ..|> ScanServiceInterface
-    FakeVendorLookupTest ..|> VendorLookupInterface
-
-    UpcLookupProvider ..|> IHardwareLookupProvider
-    HpeSerialLookupProvider ..|> IHardwareLookupProvider
-    DellSerialLookupProvider ..|> IHardwareLookupProvider
-    CiscoSerialLookupProvider ..|> IHardwareLookupProvider
-    WebSearchFallbackProvider ..|> IHardwareLookupProvider
-    FakeHardwareLookupProvider ..|> IHardwareLookupProvider
-    FakeHpeSerialLookupProvider ..|> IHardwareLookupProvider
-    FakeCiscoSerialLookupProvider ..|> IHardwareLookupProvider
-    FakeSerialLookupProvider ..|> IHardwareLookupProvider
+    class DC,CC,DCC,SC,VC controller
+    class DS,CS,DCS,SS service
+    class DevRepo,CompRepo,DCRepo,ScanSvc,FVL,DBC,SS2 repo
+    class DRI,CRI,DCRI,SSI,VLI,ISS,IHL iface
+    class P1,P2,P3,P4,P5 provider
 ```
 
 ## 3) Core Domain Model Diagram

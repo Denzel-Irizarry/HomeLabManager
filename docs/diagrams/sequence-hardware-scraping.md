@@ -9,47 +9,47 @@ This diagram shows how the scraper feature works — either from a text query
 sequenceDiagram
     autonumber
     actor User
-    participant UI as Blazor UI
+    participant UI as Blazor Scraper Page
     participant API as ScraperController
     participant Svc as ScraperService
-    participant Det as VendorDetector
-    participant Pvd as HW Providers
-    participant Ext as External APIs
+    participant Det as SerialVendorDetector
+    participant Pvd as IHardwareLookupProvider Chain
+    participant Ext as External APIs (UPC / HPE / Dell / Cisco / Web)
 
-    User->>UI: Enter serial / UPC, click "Search"
-    UI->>API: POST /api/scraper/search
+    User->>UI: Enter serial number or UPC, click Search
+    UI->>API: POST /api/scraper/search { Query }
 
-    API->>API: AnalyzeQuery → "Upc" or "SerialNumber"
+    API->>API: AnalyzeQuery — returns Upc if all digits, else SerialNumber
     API->>Svc: LookupDeviceAsync(query, codeType)
 
-    alt SerialNumber
+    alt codeType == SerialNumber
         Svc->>Det: DetectVendor(query)
-        Det-->>Svc: vendor (HPE / Dell / Cisco / "")
-    else Upc
-        Svc->>Svc: vendor = ""
+        Det-->>Svc: detectedVendor (HPE / Dell / Cisco / empty string)
+    else codeType == Upc
+        Svc->>Svc: detectedVendor = empty string
     end
 
-    loop Each provider where CanHandle == true
-        Svc->>Pvd: SearchAsync(query, vendor)
-        Pvd->>Ext: API call
-        Ext-->>Pvd: raw response
+    loop For each provider where CanHandle(codeType, vendor) == true
+        Svc->>Pvd: SearchAsync(query, detectedVendor)
+        Pvd->>Ext: HTTP call to vendor or UPC API
+        Ext-->>Pvd: Raw API response
         Pvd-->>Svc: ScrapeResult
 
-        alt Success
-            Svc-->>API: ScrapeResult (success)
-        else Manual lookup required
-            Svc-->>API: ScrapeResult (lookup hint + URL)
-        else Failed
-            Svc->>Svc: Save as lastFailure, try next
+        alt ScrapeResult.Success == true
+            Svc-->>API: Return ScrapeResult (success path)
+        else LookupStatus == manual_lookup_required
+            Svc-->>API: Return ScrapeResult with manual lookup URL
+        else Provider failed
+            Svc->>Svc: Store as lastFailure and continue to next provider
         end
     end
 
-    alt No provider matched
-        Svc-->>API: ScrapeResult (failure)
+    alt No provider succeeded
+        Svc-->>API: ScrapeResult with Success=false and lastFailure details
     end
 
-    API-->>UI: 200 OK (ScrapeResult)
-    UI-->>User: Show product info or lookup hint
+    API-->>UI: 200 OK with ScrapeResult JSON
+    UI-->>User: Display product info or manual lookup hint
 ```
 
 ## Path B — Image-Based Scrape Preview
@@ -58,39 +58,37 @@ sequenceDiagram
 sequenceDiagram
     autonumber
     actor User
-    participant UI as Blazor UI
+    participant UI as Blazor Scraper Page
     participant API as ScraperController
     participant Scan as ScanService
     participant Svc as ScraperService
-    participant Pvd as HW Providers
-    participant Ext as External APIs
+    participant Pvd as IHardwareLookupProvider Chain
+    participant Ext as External APIs (UPC / HPE / Dell / Cisco / Web)
 
-    User->>UI: Upload device image
-    UI->>API: POST /api/scraper/from-image
+    User->>UI: Upload device photo
+    UI->>API: POST /api/scraper/from-image (multipart form-data)
 
     API->>Scan: ExtractSerialAsync(imageStream)
-    Scan-->>API: extractedCode
+    Scan-->>API: extractedCode string
 
-    API->>API: AnalyzeExtractedCode(code)
-    note right of API: URL → not supported
-        All digits → Upc
-        Alphanumeric → SerialNumber
-        Other → Unknown
+    API->>API: AnalyzeExtractedCode(extractedCode)
+    Note right of API: URL detected — not supported for lookup.<br/>All digits — treated as Upc code.<br/>Alphanumeric — treated as SerialNumber.<br/>Anything else — Unknown, cannot lookup.
 
-    alt Cannot attempt lookup
-        API-->>UI: 200 OK (CanAttemptLookup: false)
-        UI-->>User: Show code + reason
+    alt CanAttemptLookup == false
+        API-->>UI: 200 OK with CanAttemptLookup false
+        UI-->>User: Show extracted code and reason lookup was skipped
     end
 
-    API->>Svc: LookupDeviceAsync(code, codeType)
-    Svc->>Pvd: Provider chain (same as Path A)
-    Pvd->>Ext: API call
-    Ext-->>Pvd: response
+    API->>Svc: LookupDeviceAsync(extractedCode, codeType)
+    Svc->>Pvd: Same provider chain as Path A
+    Pvd->>Ext: HTTP call to vendor or UPC API
+    Ext-->>Pvd: Raw API response
     Pvd-->>Svc: ScrapeResult
     Svc-->>API: ScrapeResult
 
-    API-->>UI: 200 OK (ImageScrapePreviewResponse)
-    UI-->>User: Show preview (product, model, image, URL)
+    API->>API: Map ScrapeResult to ImageScrapePreviewResponse
+    API-->>UI: 200 OK with ImageScrapePreviewResponse JSON
+    UI-->>User: Show preview with ProductName, Manufacturer, ModelNumber, Image, Source URL
 ```
 
 ## Provider Priority Order

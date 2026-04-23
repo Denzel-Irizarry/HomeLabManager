@@ -7,63 +7,63 @@ label to register it automatically via barcode/QR-code scanning.
 sequenceDiagram
     autonumber
     actor User
-    participant UI as Blazor UI
-    participant API as DevicesController
+    participant UI as Blazor RegisterImage Page
+    participant API as DevicesController POST /api/devices/register
     participant Svc as DeviceService
-    participant Scan as ScanService
-    participant Vendor as VendorLookup
+    participant Scan as ScanService (barcode decoder)
+    participant Vendor as VendorLookupInterface
     participant Repo as DeviceRepository
-    participant DB as SQLite / EF Core
+    participant DB as ApplicationDBContext / SQLite
 
-    User->>UI: Select image, click "Register"
-    UI->>API: POST /api/devices/register
+    User->>UI: Select device image file and click Register
+    UI->>API: POST /api/devices/register (multipart form-data)
 
-    API->>API: Validate file not null/empty
-    alt File invalid
-        API-->>UI: 400 Bad Request
-        UI-->>User: "No file uploaded"
+    API->>API: Validate file is not null and not empty
+    alt File is missing or empty
+        API-->>UI: 400 Bad Request — No file uploaded
+        UI-->>User: Display error message
     end
 
     API->>Svc: RegisterDeviceAsync(imageStream)
 
-    Svc->>Scan: ExtractSerialAsync(imageStream)
-    Scan-->>Svc: serialNumber
+    Svc->>Scan: ExtractSerialAsync(ScanRequest with imageStream)
+    Scan-->>Svc: Extracted serialNumber string
 
-    alt No serial extracted
-        Svc-->>API: SerialNumberMissingException
+    alt Serial number could not be extracted
+        Svc-->>API: Throw SerialNumberMissingException
         API-->>UI: 400 Bad Request
-        UI-->>User: "Serial could not be extracted"
+        UI-->>User: Serial number could not be extracted from image
     end
 
-    Svc->>Repo: SerialExistsAsync(serial)
-    Repo-->>Svc: exists (bool)
+    Svc->>Repo: SerialExistsAsync(serialNumber)
+    Repo-->>Svc: exists boolean
 
-    alt Duplicate serial
-        Svc-->>API: DuplicateSerialNumberException
+    alt Serial number already registered
+        Svc-->>API: Throw DuplicateSerialNumberException
         API-->>UI: 409 Conflict
-        UI-->>User: "Device already exists"
+        UI-->>User: A device with this serial number already exists
     end
 
-    Svc->>Vendor: GetProductBySerialAsync(serial)
-    Vendor-->>Svc: Product + Vendor info
+    Svc->>Vendor: GetProductBySerialAsync(serialNumber)
+    Vendor-->>Svc: Product with nested Vendor object
 
-    Svc->>DB: Find existing Vendor by name
-    DB-->>Svc: vendor row or null
+    Svc->>DB: Vendors.FirstOrDefaultAsync by normalized name
+    DB-->>Svc: Existing vendor row or null
 
-    alt Vendor exists
-        Svc->>Svc: Re-use vendor row
+    alt Vendor already exists in database
+        Svc->>Svc: Re-use existing Vendor row
     else New vendor
-        Svc->>DB: Add new Vendor
+        Svc->>DB: Vendors.AddAsync with new Vendor
     end
 
     Svc->>DB: Products.Add(product)
     Svc->>Repo: AddAsync(device)
     Svc->>DB: SaveChangesAsync()
-    DB-->>Svc: Saved
+    DB-->>Svc: Changes persisted successfully
 
     Svc-->>API: DeviceResponseDTO
-    API-->>UI: 200 OK
-    UI-->>User: Show device details
+    API-->>UI: 200 OK with DeviceResponseDTO JSON
+    UI-->>User: Show success message with device details
 ```
 
 ## Error Paths Summary

@@ -7,55 +7,55 @@ through the **Register Manually** form instead of uploading an image.
 sequenceDiagram
     autonumber
     actor User
-    participant UI as Blazor UI
-    participant API as DevicesController
+    participant UI as Blazor ManualRegister Page
+    participant API as DevicesController POST /api/devices/manual
     participant Svc as DeviceService
     participant Repo as DeviceRepository
-    participant DB as SQLite / EF Core
+    participant DB as ApplicationDBContext / SQLite
 
-    User->>UI: Fill form (Serial, NickName, Location, Product, Vendor)
-    User->>UI: Click "Register Device"
+    User->>UI: Fill in SerialNumber, NickName, Location, ProductName, ModelNumber, VendorName
+    User->>UI: Click Register Device button
 
-    UI->>API: POST /api/devices/manual
+    UI->>API: POST /api/devices/manual (JSON body: ManualDeviceRegisterRequest)
 
     API->>Svc: RegisterManualDeviceAsync(request)
 
-    Svc->>Svc: Validate Serial or NickName present
-    alt Neither provided
-        Svc-->>API: SerialNumberMissingException
+    Svc->>Svc: Validate that at least SerialNumber or NickName is provided
+    alt Neither SerialNumber nor NickName was provided
+        Svc-->>API: Throw SerialNumberMissingException
         API-->>UI: 400 Bad Request
-        UI-->>User: "Provide at least Serial or NickName"
+        UI-->>User: Please provide at least a SerialNumber or NickName
     end
 
-    alt Serial provided
-        Svc->>Repo: SerialExistsAsync(serial)
-        Repo-->>Svc: exists (bool)
-        alt Duplicate serial
-            Svc-->>API: DuplicateSerialNumberException
+    alt SerialNumber was provided
+        Svc->>Repo: SerialExistsAsync(serialNumber)
+        Repo-->>Svc: exists boolean
+        alt Duplicate serial number detected
+            Svc-->>API: Throw DuplicateSerialNumberException
             API-->>UI: 409 Conflict
-            UI-->>User: "Device already exists"
+            UI-->>User: A device with the same serial number already exists
         end
     end
 
-    Svc->>DB: Find Vendor by normalized name
-    DB-->>Svc: vendor row or null
+    Svc->>DB: Vendors.FirstOrDefaultAsync by normalized vendor name
+    DB-->>Svc: Existing vendor row or null
 
-    alt Vendor exists
-        Svc->>Svc: Re-use vendor row
-    else New vendor
-        Svc->>DB: Add new Vendor
+    alt Vendor already exists in database
+        Svc->>Svc: Re-use existing Vendor row
+    else New vendor name
+        Svc->>DB: Vendors.AddAsync with new Vendor
     end
 
-    Svc->>Svc: Create Product entity
-    Svc->>Svc: Create Device entity
+    Svc->>Svc: Create Product entity (ProductName, ModelNumber, VendorId)
+    Svc->>Svc: Create Device entity (SerialNumber, NickName, Location, ProductId)
 
     Svc->>DB: Products.Add(product)
     Svc->>Repo: AddAsync(device)
     Svc->>DB: SaveChangesAsync()
-    DB-->>Svc: Saved
+    DB-->>Svc: Changes persisted successfully
 
     Svc-->>API: DeviceResponseDTO
-    API-->>UI: 200 OK
+    API-->>UI: 200 OK with DeviceResponseDTO JSON
     UI-->>User: Show registered device details
 ```
 
