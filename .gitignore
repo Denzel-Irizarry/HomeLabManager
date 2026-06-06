@@ -346,6 +346,10 @@ $PWD/
 
 # VS Code launch profile is local-only for now
 .vscode/launch.json
+.vscode/settings.json
+
+# Agent planning and build-process notes
+.copilot-tracking/
 
 # MSBuild Binary and Structured Log
 *.binlog
@@ -382,6 +386,10 @@ FodyWeavers.xsd
 
 # Project-local runtime database
 HomeLabManager.API/homelab.db
+
+# Project-local app data created by local run scripts
+.localappdata/
+HomeLabManager.WEBUI/.data-protection-keys/
 
 # Local database snapshots
 *.bacpac

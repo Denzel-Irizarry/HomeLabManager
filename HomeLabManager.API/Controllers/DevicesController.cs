@@ -21,10 +21,13 @@ namespace HomeLabManager.API.Controllers
         private readonly ILogger<DevicesController> logger;
 
         //how to actually call the device controller
-        public DevicesController(DeviceService deviceService, ILogger<DevicesController> logger)
+        private readonly HomeLabManager.API.Interfaces.RemoteObservation.IRemoteObservationService _remoteObservationService;
+
+        public DevicesController(DeviceService deviceService, ILogger<DevicesController> logger, HomeLabManager.API.Interfaces.RemoteObservation.IRemoteObservationService remoteObservationService)
         {
             this.deviceService = deviceService;
             this.logger = logger;
+            _remoteObservationService = remoteObservationService;
         }
 
         // post request to register a device, it takes in an image file and returns a device object that has been created and saved to the database       
@@ -220,6 +223,27 @@ namespace HomeLabManager.API.Controllers
             {
                 logger.LogError(ex, "An error occurred while updating the device.");
                 return StatusCode(500, "An error occurred while updating the device.");
+            }
+        }
+
+        // POST: api/devices/{id}/probe
+        [HttpPost("{id:guid}/probe")]
+        public async Task<IActionResult> ProbeDevice(Guid id, [FromBody] HomeLabManager.API.Models.RemoteObservation.RemoteObservationRequest request)
+        {
+            try
+            {
+                var result = await _remoteObservationService.ProbeAsync(id, request);
+                if (!result.Success)
+                {
+                    return BadRequest(result.ErrorMessage);
+                }
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error probing device {DeviceId}", id);
+                return StatusCode(500, "An error occurred while probing the device.");
             }
         }
 

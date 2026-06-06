@@ -1,4 +1,5 @@
 using HomeLabManager.WEBUI.Components;
+using Microsoft.AspNetCore.DataProtection;
 
 namespace HomeLabManager.WEBUI
 {
@@ -8,6 +9,9 @@ namespace HomeLabManager.WEBUI
         {
             // Diagnostic logging removed
             var builder = WebApplication.CreateBuilder(args);
+            builder.Logging.ClearProviders();
+            builder.Logging.AddConsole();
+            builder.Logging.AddDebug();
 
             // Add services to the container.
             builder.Services.AddRazorComponents()
@@ -17,6 +21,13 @@ namespace HomeLabManager.WEBUI
             {
                 options.MaximumReceiveMessageSize = 20 * 1024 * 1024;
             });
+
+            if (builder.Environment.IsDevelopment())
+            {
+                var keyRingPath = Path.Combine(builder.Environment.ContentRootPath, ".data-protection-keys");
+                builder.Services.AddDataProtection()
+                    .PersistKeysToFileSystem(new DirectoryInfo(keyRingPath));
+            }
 
             var apiBaseUrl = builder.Configuration["Api:BaseUrl"] ?? "http://localhost:5015";
 

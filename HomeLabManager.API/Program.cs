@@ -6,6 +6,11 @@ using HomeLabManager.API.Services;
 using HomeLabManager.API.Services.Scraping;
 using HomeLabManager.API.Services.Scraping.Interfaces;
 using HomeLabManager.API.Services.Scraping.Providers;
+using HomeLabManager.API.Interfaces.RemoteObservation;
+using HomeLabManager.API.Services.RemoteObservation;
+using HomeLabManager.API.Services.RemoteObservation.Providers;
+using HomeLabManager.API.Interfaces.Security;
+using HomeLabManager.API.Services.Security;
 
 namespace HomeLabManager.API
 {
@@ -15,6 +20,9 @@ namespace HomeLabManager.API
         {
             // Diagnostic logging removed
             var builder = WebApplication.CreateBuilder(args);
+            builder.Logging.ClearProviders();
+            builder.Logging.AddConsole();
+            builder.Logging.AddDebug();
 
             //all builder services are a registry of when a service is requested, how to create an instance of that service.
             // Add services to the container.
@@ -73,6 +81,11 @@ namespace HomeLabManager.API
             builder.Services.AddScoped<ComponentRepositoryInterface, ComponentRepository>();
             //ComponentService: This is the service that will be used to handle the business logic for components
             builder.Services.AddScoped<ComponentService>();
+
+            // Remote observation service and providers (Phase 2 registrations)
+            builder.Services.AddScoped<IRemoteObservationService, RemoteObservationService>();
+            builder.Services.AddScoped<IRemoteObservationProvider, SshRemoteObservationProvider>();
+            builder.Services.AddScoped<ICredentialResolver, UserSecretsCredentialResolver>();
 
             //DBcontext for build services to know to use SQLite
             var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
